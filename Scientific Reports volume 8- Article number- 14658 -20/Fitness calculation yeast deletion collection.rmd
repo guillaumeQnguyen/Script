@@ -1,0 +1,1383 @@
+---
+title: "051017 Sap projet new allignement"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+
+
+```{r}
+
+library(vegan)
+library(rafalib)
+library(FactoMineR)
+library(factoextra)
+
+
+
+library(cowplot)
+library(squash)
+library(reshape)
+library(grid)
+library(gridExtra)
+library(corrplot)
+library(ggplot2)
+library(zoo)
+library(NbClust)
+library(ggdendro)
+library(plotly)
+library(GGally)
+library ( stringr)
+library(preprocessCore)
+library(limma)
+library(dplyr)
+setwd("~/Dropbox/Projet SAP ( collection KO)/Nouvelles alignements/final")
+
+```
+
+
+```{r}
+## manual function 
+
+panel.cor <- function(x, y, digits = 2, cex.cor, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  # correlation coefficient
+  r <- cor(x, y)
+  txt <- format(c(r, 0.123456789), digits = digits)[1]
+  txt <- paste("r= ", txt, sep = "")
+  text(0.5, 0.6, txt)
+  
+  # p-value calculation
+  p <- cor.test(x, y)$p.value
+  txt2 <- format(c(p, 0.123456789), digits = digits)[1]
+  txt2 <- paste("p= ", txt2, sep = "")
+  if(p<0.01) txt2 <- paste("p= ", "<0.01", sep = "")
+  text(0.5, 0.4, txt2)
+}
+
+
+compare_fitness1 = function(w,x,y,z,t){
+  a = w*x
+  b = y*z
+  c = 1/t
+  d =  a / b
+  d^c
+}
+propor_maker = function( x,y) {  as.numeric(x) / y    }
+
+
+
+
+sstath <- function (x) {  data.frame(
+Min = apply(x, 2, min), # minimum
+Med = apply(x, 2, median), # median
+Mean =  signif ( apply(x, 2, mean) , 3), # mean
+SD = apply(x, 2, sd), # Standard deviation
+Max = apply(x, 2, max), # Maximum
+somme = apply(x, 2, sum)
+
+)
+}
+
+
+sstatv <- function (x) {  data.frame(
+Min = apply(x, 1, min), # minimum
+Med = apply(x, 1, median), # median
+Mean = signif (apply(x, 1, mean) ), # mean
+SD = apply(x, 1, sd), # Standard deviation
+Max = apply(x, 1, max), # Maximum
+somme = apply(x, 1, sum)
+
+
+)
+}
+
+multiplot <- function(..., plotlist=NULL, cols) {
+    require(grid)
+
+    # Make a list from the ... arguments and plotlist
+    plots <- c(list(...), plotlist)
+
+    numPlots = length(plots)
+
+    # Make the panel
+    plotCols = cols                          # Number of columns of plots
+    plotRows = ceiling(numPlots/plotCols) # Number of rows needed, calculated from # of cols
+
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(plotRows, plotCols)))
+    vplayout <- function(x, y)
+        viewport(layout.pos.row = x, layout.pos.col = y)
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+        curRow = ceiling(i/plotCols)
+        curCol = (i-1) %% plotCols + 1
+        print(plots[[i]], vp = vplayout(curRow, curCol ))
+    }
+
+}
+
+
+```
+
+
+```{r}
+
+
+#Null variable
+
+
+```
+
+```{r}
+
+
+
+library(xlsx)
+library(ggplot2)
+library(reshape)
+library(Rmisc) 
+
+library ( stringr)
+
+
+
+
+
+setwd("~/Dropbox/Projet SAP ( collection KO)/Nouvelles alignements/final")
+
+M_Final_M = c()
+
+sample_Lib = list.files( path = ".",pattern = "sample libra") 
+
+
+Lib = c("L1","L2")
+
+
+for (p in c(1,2) ){
+
+L_file = list.files( path = ".",pattern = Lib[p]) 
+
+
+
+a2 = read.csv(L_file [1],sep= ",")
+
+a2 = a2[order(a2$Name),]
+
+Mcombi = a2[,c(3,8)]
+
+
+Mcombi [,2] = sub(",","",Mcombi [,2])
+
+Mcombi [,2] = as.character(Mcombi [,2] )
+Mcombi [,2]  = as.numeric (Mcombi [,2] )
+
+
+
+
+
+
+for (t in 2:length(L_file)) {
+
+a2 = read.csv(L_file [t],sep= ",")
+
+a2 = a2[order(a2$Name),]
+
+L_name = paste(L_file [t]) 
+
+
+combi = data.frame(a2$Maximum.Coverage)
+
+
+combi[,1] = sub(",","",combi[,1])
+
+combi[,1] = as.character(combi[,1] )
+combi[,1]  = as.numeric (combi[,1] )
+
+colnames(combi) = L_name
+
+Mcombi = cbind (Mcombi, combi)
+
+}
+a = Mcombi   #### fichiers combinees
+
+a$Maximum.Coverage2 = apply(a[,-1],1,sum ) 
+
+
+
+write.table(a, "29.07.17 max coverage par alignement strigeance.txt", quote= F, row.names=F, sep = "\t")
+
+
+M_data_p = data.frame( transform(a,Yeast = colsplit(Name, split = " ", names = c("CB", "autre"))))
+
+
+M_data_p_S = M_data_p [,c ("Yeast.CB" , "Maximum.Coverage2")] 
+
+
+M_data_p2 = data.frame( transform(M_data_p_S,Yeast = colsplit(Yeast.CB, split = "\\:", names = c("CB", "autre"))))
+
+
+M_data_p2 = M_data_p2[,c("Yeast.CB.1","Maximum.Coverage2")]
+
+M_data_p2_S = data.frame( transform(M_data_p2,Yeast = colsplit(Yeast.CB.1, split = "\\_", names = c("CB", "autre"))))
+
+
+
+Final =M_data_p2_S[c (4,5,2)]
+
+
+
+
+colnames(Final) = c( "index","S_name", "Maximum.Coverage" )
+
+#write.table (Final )
+
+
+
+
+
+
+sample_assi = read.table ( sample_Lib[p], header= T, sep ="\t")
+
+Final_M = merge(Final,by.x = "index", sample_assi ,by.y = "L" ) 
+
+
+M_Final_M = rbind (M_Final_M , Final_M)
+
+}
+
+
+
+
+write.table ( M_Final_M, paste ("29,09,17 donnees brute library combinees",p ,".txt"),quote=F, row.names= F, sep = "\t")
+
+
+ff = unique ( M_Final_M$sample)
+
+ss = unique ( M_Final_M$S_name)
+
+
+FiletM = M_Final_M 
+
+```
+
+```{r}
+#merge count by name
+
+
+
+Uname = unique (FiletM$S_name)
+Ucondition = unique (FiletM$sample)
+
+
+M_final_S = c()
+
+
+S_final_1 = FiletM [ FiletM$sample ==   Ucondition[1],]
+
+S_final_N = as.character(unique ( S_final_1 [,4]))
+colnames ( S_final_1)[3] = S_final_N 
+
+S_final_1 = S_final_1[,c(2,3)]
+
+S_final_1= S_final_1[order (S_final_1$S_name),]
+
+for (t in 2: length (Ucondition )){
+
+S_final = FiletM [ FiletM$sample ==   Ucondition[t],]
+
+S_final_N = as.character(unique ( S_final[,4]))
+
+S_final = S_final[,c(2,3)] 
+
+colnames ( S_final)[2] = S_final_N 
+
+S_final= S_final[order (S_final$S_name),]
+
+S_final2 =data.frame (S_final[,2]) 
+
+colnames ( S_final2)[1] =S_final_N 
+
+ S_final_1 =  cbind ( S_final_1  , S_final2 )
+
+
+
+
+}
+
+M_data =c()
+
+for (z in 1 : length(Uname)){
+  
+  Li =  S_final_1[ S_final_1$S_name ==  Uname[z], ]
+  
+  Li_S =apply( Li[,-1] ,2 ,sum )
+  
+ 
+  data = cbind ( as.character (Uname[z]),  t(Li_S ) )
+  
+  colnames (data) = colnames(Li)
+  
+  M_data = rbind (M_data, data)
+  }
+  
+
+
+M_data2= data.frame(M_data)
+
+
+YKN_1 = c ( "Ykb|002","Ykb|003",
+"Ykb|004",
+"Ykb|007",
+"Ykb|008",
+"Ykb|013",
+"Ykb|014",
+"Ykb|015",
+"Ykb|016",
+"Ykb|018",
+"Ykb|020",
+"Ykb|021",
+"Ykb|023")
+
+YKN_2= M_data2$S_name[!(M_data2$S_name %in% YKN_1)]
+
+YKN_2 = as.character ( YKN_2)
+
+M_data2 = M_data2 [M_data2 $S_name %in%YKN_2, ]
+
+
+write.table  ( M_data2 , "29.09.17 read brute merge.txt", sep = "\t", quote =F, row.names=F)
+
+
+
+
+
+####remove read inf a 100 reads
+
+for ( j in 2:ncol(M_data2 ) ) {
+  
+  M_data2[,j] = as.character(M_data2[,j])
+  M_data2[,j] = as.numeric(M_data2[,j])
+  
+}
+
+
+M_data_sum = apply (M_data2[,-1], 1, sum)
+
+m_Sum = data.frame (cbind (as.character (M_data2[,1]), M_data_sum))
+
+
+
+  m_Sum[,2] = as.character(m_Sum[,2])
+  m_Sum[,2] = as.numeric(m_Sum[,2])
+
+
+
+m_Sum_S = m_Sum [m_Sum$M_data_sum >=100, ]
+
+m_Sum_NS = m_Sum [m_Sum$M_data_sum <100, ]
+
+
+Name_100 = as.character (m_Sum_S$V1)
+
+
+S_data_ana = M_data2[M_data2$S_name %in% Name_100, ]
+
+write.table(S_data_ana,"01,10,17 souche sup 100 read row.data.txt ", row.names=F, quote=F, sep= "\t")
+
+af = colnames ( S_data_ana)
+
+exclus_lib = af [ !(af  %in% c("Sucrose02","Pool_4","Sucrose05","JMN1") )]
+
+S_data_ana2 = S_data_ana
+S_data_ana = S_data_ana[,exclus_lib]
+
+
+
+
+
+exclud_condition = c()
+in_condition = c()
+
+for (h in 1: nrow(S_data_ana)){
+ if (length (which(S_data_ana[h,] == 0 )) == 0) {in_condition = c(in_condition, as.character (S_data_ana[h,1] ) ) }else{ exclud_condition = c(exclud_condition ,as.character (S_data_ana[h,1] ) )}
+}
+
+
+F_data =  S_data_ana[S_data_ana$S_name %in% in_condition,]
+
+NF_data =  S_data_ana[S_data_ana$S_name %in% exclud_condition,]
+
+####un val =0
+
+#########test porpr
+
+library ( propr)
+
+test= F_data 
+
+test2 = ( test[,-1])
+
+
+row.names(test2) = F_data[,1]
+
+test4 = propd(test2,row.names(test2), alpha, p = 100, cutoff = NA, weighted = FALSE) 
+
+test3 = abstract(test2,test2, dt, colBy = "Adjusted", cutoff = 0.01)
+
+smear(test,promp=T,plotly = T)
+
+
+
+#### pearson
+
+cor.test( F_data$Pool_3,F_data$Pool_1,method = "spearman")
+cor.test( F_data$Pool_2,F_data$Pool_1,method = "spearman")
+
+cor.test( F_data$Pool_3,F_data$Pool_2,method = "spearman")
+
+
+x = sort(colnames(F_data))
+
+pval_cc = data.frame ( S1 = 1:(18^2), S2 =1:(18^2), pval = 0)
+i=1
+
+for (d in x[31:46]){
+
+  for (dd in x[31:46]){
+
+
+ gty = cor.test( F_data[,d],F_data[,dd],method = "spearman")
+
+ pval_cc$S1[i]= d
+pval_cc$S1[i]= dd
+pval_cc$pval[i]=  gty$estimate
+ 
+i=i+1
+}}
+
+
+
+
+
+
+
+#0.9297669 2.2e-16  ; 2.2e-16 0.9171082 
+
+
+
+test
+
+
+
+
+
+
+
+```
+
+# Données statistitiques sur la Fitness
+
+les valeurs de reads des echantillons (autres que le pool initial) egale a 0 ont été remplacé par 0.5 pour conserver l information sur la fitness de ces souches.
+
+
+[MAJ]
+Deux analyses independantes ,une avec les données excluants les 0 dans au moins une des conditions. et une seconde avec le jeux données de données des souches excluses précédemment
+
+
+
+#calcul de la fitness 
+
+
+```{r}
+
+generation = read.table("28.11.16 Fitness sap.txt", sep = "\t",dec = ",",header = T)
+
+```{r,echo=FALSE}
+
+generation$Mean.Generations.totales. = as.numeric (generation$Mean.Generations.totales. )
+
+```
+
+calcul de la `Fitness = (P’ Pwt)/(P Pwt’)1/t`
+
+ P =  `IP_fit2$SD_IP_fit` equivaut à la moyenne des proportions des pools initaux par souches 
+
+```{r,echo=FALSE}
+
+#rownames(Ipool1) = F_data [,1]
+
+IP_fit = F_data[,-1]
+
+IP_fit2= data.frame ( t (F_data[1,]) )
+
+IP_fit2 = data.frame(IP_fit2[-1,])
+
+IP_fit2$sum = apply(IP_fit,2,sum) ##### somme par library
+IP_fit2 = data.frame ( colnames( F_data[,-1]), IP_fit2[,-1])
+
+###### proportion par strain et pool
+
+
+Pool_proportion_1 = F_data[, c("S_name", "Pool_1")]
+
+Pool_proportion_1$proportion =  Pool_proportion_1$Pool_1/
+                                   IP_fit2[IP_fit2$colnames.F_data....1.. == "Pool_1",2]
+
+Pool_proportion_1= Pool_proportion_1[,-2]
+
+                                
+Pool_proportion_2 = F_data[, c("S_name", "Pool_2")]
+
+Pool_proportion_2$proportion =  Pool_proportion_2$Pool_2/
+                                   IP_fit2[IP_fit2$colnames.F_data....1.. == "Pool_2",2]
+
+Pool_proportion_2= Pool_proportion_2[,-2]
+
+       Pool_proportion_3 = F_data[, c("S_name", "Pool_3")]
+
+Pool_proportion_3$proportion =  Pool_proportion_3$Pool_3/
+                                   IP_fit2[IP_fit2$colnames.F_data....1.. == "Pool_3",2]
+
+Pool_proportion_3= Pool_proportion_3[,-2]       
+
+Combi_pool = merge ( Pool_proportion_1, Pool_proportion_2, by="S_name")
+
+Combi_pool = merge ( Combi_pool, Pool_proportion_3, by="S_name")
+
+
+
+Combi_pool$mean = apply (Combi_pool[,-1],1,mean)
+Combi_pool$sd = apply (Combi_pool[,-1],1,sd)
+
+```
+
+Entete des Données des pools
+
+```{r,}
+
+
+```
+ P prim proportion pour un echantillon donné ( all sample contenu dans variable `PPro_all_S`)
+```{r,echo=FALSE}
+
+
+sample_condi = colnames(F_data) 
+
+sample_condi = sample_condi [ !(sample_condi %in% c("S_name","Pool_1", "Pool_2", "Pool_3"))]
+
+Pro_all_S = F_data
+
+
+for (ty in sample_condi){
+  
+  Pro_all_S[,ty] = as.numeric(Pro_all_S[,ty])
+}
+
+Pro_all_S = Pro_all_S[, sample_condi]
+
+
+somme_PPro_all_S = apply(Pro_all_S, 2, sum )
+
+somme_PPro_all_S2= t (data.frame(somme_PPro_all_S))
+
+somme_PPro_all_S2= data.frame(t ( somme_PPro_all_S2))
+
+
+
+condition_name_pro = colnames (Pro_all_S ) 
+
+PPro_all_S = data.frame(F_data[1] )
+
+#for (lop in 1 : length ( PPro_all_S)) {
+  for (lop in condition_name_pro) {
+  
+    i=2
+    
+    testPP =  propor_maker(x=Pro_all_S[,lop], y = somme_PPro_all_S2[lop,])
+  
+PPro_all_S[,lop] = testPP
+
+i=i+1
+
+}
+
+
+#colnames (PPro_all_S ) = colnames (Pro_all_S)
+rownames (PPro_all_S) = rownames (Pro_all_S)
+
+
+
+
+
+```
+# souches pseudogene , d après la litterature 
+ souches Marie  : `**YCL074W, **YCL075W, **YDR134C, YFL056C, **YIL170W, **YIR044C, **YLL017W`
+ Qian 2012 `YDL227C **YDR134C **YIL170W **YCL075W **YIR044C YIR043C YLL016W YIL167W **YCL074W **YLL017W YIL168W` 
+
+```{r,echo=FALSE}
+
+
+
+pseudo = c("YDR134C", "YIL170W", "YCL075W", "YIR044C", "YIR043C", "YLL016W", "YIL167W", "YCL074W", 
+  "YLL017W", "YIL168W", "YFL056C" ) 
+
+
+```
+
+#test des pseudogenes
+
+```{r,echo=FALSE}
+
+### Pool initial 
+
+peudo_poolI= Combi_pool[Combi_pool$S_name %in% pseudo,]
+
+
+
+```{r}
+
+p = ggplot(data=peudo_poolI, aes(x=S_name, y=mean, fill=S_name)) +
+  geom_bar(stat="identity", position=position_dodge())
+p + theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+
+##################sample
+```{r,echo=FALSE}
+
+
+NameGraph = PPro_all_S[PPro_all_S$S_name %in% pseudo   ,]
+
+M_NameGraph =  melt(NameGraph, id.vars = "S_name" )
+
+
+
+
+p = ggplot(data=M_NameGraph, aes(x=S_name, y=value, fill=variable)) +
+  geom_bar(stat="identity", position=position_dodge())
+p + theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+```
+
+
+
+
+
+
+
+
+# Fitness par rapport aux echantillons
+
+les pseudogènes aux extremes `YIR043C` et `YDR134C` sont retirés de la lite des pseudogènes.
+ et la moyenne des pseudogènes est utilisé pour la suite de l analyse de la fitness (`"YLL017W","YIL170W","YCL075W","YFL056C","YIL167W","YIR043C"`)
+
+```{r,echo=FALSE} 
+ pseudogene_souche_keep_L = c( "YIL170W", "YCL075W", "YIR044C", "YLL016W", "YIL167W", "YCL074W_smi", "YLL017W", "YIL168W", "YFL056C")  
+ 
+ pseudogene_souche_keep = c("YLL017W",
+"YIL170W",
+"YCL075W",
+"YFL056C",
+"YIL167W",
+"YIR043C")
+ 
+ 
+GGG =  data.frame(generation[,c(3,4)])
+
+orde=data.frame(name = colnames(PPro_all_S), position = 1:length(PPro_all_S))
+
+fusw= merge (x=GGG, y=orde, by.x ="Sample.code" ,by.y="name" , all.y=T)
+
+
+##fusw = fusw[-c(43,44,45),]
+
+fusw = fusw[order(fusw$position),]
+fusw= na.omit(fusw)
+fuswName = as.numeric(fusw$Mean.Generations.totales.)
+ 
+DF_fitness = data.frame( matrix ( ncol = ncol(Pro_all_S), nrow= nrow ( Pro_all_S)))
+
+rownames(DF_fitness) = PPro_all_S$S_name
+colnames (DF_fitness) = colnames (Pro_all_S )
+
+for (Pssl in 1 : length ( Pro_all_S)) {
+
+  DF_fitness[,Pssl] = as.numeric( DF_fitness[,Pssl])
+}
+
+
+#calcul de la `Fitness = (P’ Pwt)/(P Pwt’)1/t`
+
+    ii = 1
+   for (Pss in  sample_condi) {
+    
+     
+     #generation
+     EchG = fusw[fusw$Sample.code == Pss,2]
+     #Pwt
+     PSG1 =  pseudogene_souche_keep
+     DF_PSG_P = Combi_pool[Combi_pool$S_name %in% PSG1,5]
+     DF_PSG_PM = mean ( DF_PSG_P)
+     
+          #Pwt'
+     DF_PSG_S = PPro_all_S[PPro_all_S$S_name %in% PSG1,Pss]
+     DF_PSG_SM = mean (DF_PSG_S )
+     tst_apply = compare_fitness1(PPro_all_S[,Pss], DF_PSG_PM,   Combi_pool[,5], DF_PSG_SM,EchG)
+     DF_fitness[,ii] = tst_apply
+     
+     ii= 1+ii
+   }
+ 
+    ##########test
+    #                 
+    # test = DF_fitness[,1:2]
+    # 
+    #                 ii = 3
+    #                for (Pss in  sample_condi) {
+    #                 
+    #                  
+    #                  #generation
+    #                  EchG = fusw[fusw$Sample.code == Pss,2]
+    #                  #Pwt
+    #                  PSG1 =  pseudogene_souche_keep
+    #                  DF_PSG_P = Combi_pool[Combi_pool$S_name %in% PSG1,5]
+    #                  
+    #                       #Pwt'
+    #                  DF_PSG_S = PPro_all_S[PPro_all_S$S_name %in% PSG1,Pss]
+    #                 
+    #                  for (g in 1:length (DF_PSG_P  )) {
+    #                  DF_PSG_PM = DF_PSG_P
+    #                   DF_PSG_SM = DF_PSG_S [g]
+    #                  
+    #                  tst_apply = compare_fitness1(PPro_all_S[,Pss], DF_PSG_PM,   Combi_pool[,5], DF_PSG_SM,EchG)
+    #                  test[,ii] = tst_apply
+    #                  
+    #                  ii= 1+ii
+    #                }}
+    #               
+    #      test$mean = apply ( test[3:8 ] , 1 ,mean)           
+    #                 
+    #                 
+                      
+    #########
+    
+    
+    
+    
+    
+    
+    
+    
+#compare_fitness1(PPro_all_S[1,Pss], DF_PSG_PM,   Combi_pool[1,5], DF_PSG_SM,EchG)
+DF_fitness = DF_fitness[,]
+
+
+DF_fitness2 = DF_fitness
+
+
+DF_fitness$S_name = rownames(DF_fitness)
+
+
+write.table (DF_fitness, "29.07.17 Donnees fitness avec nouvelle alignement.txt",quote=F,row.names=F,sep="\t" )
+```
+
+
+
+
+
+
+
+
+haut rank = value basse
+
+# analyse
+
+```{r}
+
+
+  S_data_ana = read.table ( "01,10,17 souche sup 100 read row.data.txt",header=T,sep ="\t" )
+
+correspondance_SC = read.table ( "05.09.17 correspondance SC.txt" , header = F, sep = "\t")
+
+
+exclus_lib = af [ !(af  %in% c("Sucrose02","Pool_4","Sucrose05", "JMN1") )]
+
+
+S_data_ana= S_data_ana[ , exclus_lib]
+
+
+
+
+
+
+#S_data_ana
+#write.table(tsest , "29.09.17 donnee contenant au moins une valeur  0.txt",quote= F,row.names=F,sep = "\t" )
+
+
+tsest = S_data_ana
+
+#rank_matrix = S_data_ana
+
+
+
+S_data_ana_C = merge( correspondance_SC, by.x = "V1", S_data_ana, by.y="S_name",all.y=T)
+
+S_data_ana_C$V2= as.character(S_data_ana_C$V2)
+S_data_ana_C$V2 [is.na(S_data_ana_C$V2)] = ""
+
+
+write.table (S_data_ana_C[,c(1,2)],"cor.txt",sep = "\t",quote=F)
+
+
+Y_ex = paste ("Ykb|00" ,1:40 ,sep="")
+
+Y_ex1 = paste ("Ykb|0" ,1:40 ,sep="")
+
+Y_ex2 = c(Y_ex, Y_ex1  )
+
+
+exclus_lib = as.character(S_data_ana_C$V1 [ !(S_data_ana_C$V1  %in% Y_ex2 )])
+
+S_data_ana_C2 = S_data_ana_C[S_data_ana_C$V1 %in% exclus_lib,]
+
+
+
+
+rank_matrix = S_data_ana_C2
+
+
+   
+```
+   
+     
+```{r}
+
+
+for (g in 3 : ncol (S_data_ana_C )){
+  
+  rank_matrix[,g] = rank(S_data_ana_C2 [,g],ties.method = "average")
+  
+  
+  
+  
+}
+ 
+
+
+
+write.table (rank_matrix, "1,10,17 donnees collection sap en rank (corrigé).txt",quote=F,row.names=F,sep="\t")
+
+
+rank_matrix_M = melt ( rank_matrix,id.vars = "V1","V2")
+
+
+
+
+#####
+c1 = c("AJ1","AJ3")
+c2 = c("AJ1","AJ2")
+
+c3 = c("HV1","HV4")
+c4 = c("HV1","HV5")
+
+c5 = c("F","F4")
+c6 = c("F2","F4")
+
+c7 = c("D3","D2")
+
+C_all = list(c1,c2,c3,c4,c5,c6,c7)
+
+
+S_all = rank_matrix[ , c("V1","V2") ]
+
+S_all=S_all[order(S_all$V1),]
+
+############# Percentile data
+
+percentile_DF_ALL = S_data_ana_C2
+
+for (b1 in 3:length( S_data_ana_C2)) {
+
+percentile_DF_ALL[,b1]= percent_rank(S_data_ana_C2[,b1])
+
+}
+
+
+
+#f = data.frame (S_data_ana_C2[,b1], percent_rank(S_data_ana_C2[,b1]) )
+
+
+
+
+write.table( percentile_DF_ALL, "03.10.2017 donnees percentile sap.txt",row.names=F,sep = "\t",quote=F)
+
+
+   
+```
+   
+     
+```{r}
+# analyse des percentile et fitness
+
+VR5_paired = c ( "D2","AJ2","F4","HV4" )
+STD_paired =  c ( "D3","AJ1","F2","HV1" )
+
+VR5 =  (c ( "D2","AJ2","F4","HV4","HV5","AJ3" , "P2.4_28"))
+STD =  c  ( "D3","AJ1","F","F2","HV1", "YB1"  ) 
+
+sucrose = c( "Sucrose04", "Sucrose10","Sucrose12", "Sucrose18",     "Sucrose08", "Sucrose15", "Sucrose06" ,"Sucrose16", "Sucrose01", "Sucrose11","Sucrose13", "Sucrose19","Sucrose09","Sucrose14", "Sucrose07" ,"Sucrose17" )
+
+percentile_DF_ALL2 = na.omit(percentile_DF_ALL)
+############### preselected by difference sucrose vs conditions
+
+Pseudogene_data = percentile_DF_ALL2[percentile_DF_ALL2$V1 %in% pseudogene_souche_keep_L,]
+
+head(Pseudogene_data)
+
+
+M_Pseudogene_data_perc = melt (Pseudogene_data, id.vars = c("V1","V2" ) )
+
+
+
+ggplot (M_Pseudogene_data_perc, aes (x=V2,y =value ,color= variable )) + geom_point()
+
+
+
+Pseudogene_data = percentile_DF_ALL2[percentile_DF_ALL2$V1 %in% pseudogene_souche_keep,]
+
+head(Pseudogene_data)
+
+
+M_Pseudogene_data_perc = melt (Pseudogene_data, id.vars = c("V1","V2" ) )
+
+
+
+ggplot (M_Pseudogene_data_perc, aes (x=V2,y =value ,color= variable )) + geom_point()
+
+
+
+
+
+
+
+
+
+
+
+## expel strain 
+percentile_DF_ALL = percentile_DF_ALL[percentile_DF_ALL$V1 !="YDL227C",]
+percentile_DF_ALL = percentile_DF_ALL[percentile_DF_ALL$V1 !="YGR061C",]
+
+
+Percentil_S_STD = data.frame (V1 = percentile_DF_ALL$V1,V2 =percentile_DF_ALL$V2, pvalue = 0, difference = 0 ) #### std
+
+
+for (fr in 1 : nrow(percentile_DF_ALL)){
+
+V_sucrose = as.numeric (percentile_DF_ALL[fr, sucrose])
+V_std= as.numeric (percentile_DF_ALL[fr, STD])
+
+x = t.test(V_std, V_sucrose,paired = F, var.equal=F)
+
+if(as.numeric(x[1][1]) <= 1){Percentil_S_STD$difference[fr] = 1}else {Percentil_S_STD$difference[fr]= -1}
+
+Percentil_S_STD$pvalue[fr]=  as.numeric(x[3][1])
+}
+
+Percentil_S_STD$FDR = p.adjust(as.numeric(Percentil_S_STD$pvalue),method = "fdr")
+
+diff_S_ranked_pval_signi_STD = Percentil_S_STD[Percentil_S_STD$pvalue<0.01,]
+   diff_S_ranked_pval_signi_STD = na.omit( diff_S_ranked_pval_signi_STD )
+   
+   
+   diff_S_ranked_FDR_signi_STD= diff_S_ranked_pval_signi_STD[diff_S_ranked_pval_signi_STD$FDR < 0.05,]
+
+   
+      
+```
+   
+     
+```{r}
+#################
+
+Percentil_S_VR5 = data.frame (V1 = percentile_DF_ALL$V1,V2 =percentile_DF_ALL$V2,  pvalue = 0 , difference =0) #### VR5
+
+
+for (fr in 1 : nrow(percentile_DF_ALL)){
+
+V_sucrose = as.numeric (percentile_DF_ALL[fr, sucrose])
+V_VR5= as.numeric (percentile_DF_ALL[fr, VR5])
+
+x = t.test(V_VR5, V_sucrose,paired = F, var.equal=F)
+
+if( as.numeric(x[1][1])  <= 1){Percentil_S_VR5$difference[fr] = 1}else {Percentil_S_VR5$difference[fr]= -1}
+
+Percentil_S_VR5$pvalue[fr]=  as.numeric(x[3][1])
+}
+
+Percentil_S_VR5$FDR = p.adjust(as.numeric(Percentil_S_VR5$pvalue),method = "fdr")
+
+diff_S_ranked_pval_signi_VR5 = Percentil_S_VR5[Percentil_S_VR5$pvalue<0.01,]
+
+diff_S_ranked_pval_signi_VR5= na.omit(diff_S_ranked_pval_signi_VR5)
+
+diff_S_ranked_FDR_signi_VR5= diff_S_ranked_pval_signi_VR5[diff_S_ranked_pval_signi_VR5$FDR < 0.05,]
+
+##############################diff
+
+gene_diff_S =  c( as.character(diff_S_ranked_FDR_signi_VR5$V1), as.character(diff_S_ranked_FDR_signi_STD$V1))
+gene_diff_S_u  = unique (gene_diff_S )
+
+percentile_DF_ALL_S_diff =  percentile_DF_ALL[percentile_DF_ALL$V1 %in%gene_diff_S_u ,]
+
+percentile_DF_Pval_VR5 = percentile_DF_ALL_S_diff[,c(1,2)]
+
+percentile_DF_Pval_VR5$pvalue = 0
+percentile_DF_Pval_VR5$difference = 0
+
+cbv= c(VR5_paired,STD_paired)
+
+pairs( percentile_DF_ALL_S_diff[,cbv], upper.panel = panel.cor, main = "VR5"  )
+                
+                
+                for (fr in 1 : nrow(percentile_DF_ALL_S_diff)){
+                
+                V_std = as.numeric (percentile_DF_ALL_S_diff[fr, STD_paired])
+                V_VR5= as.numeric (percentile_DF_ALL_S_diff[fr, VR5_paired])
+                
+                x = t.test(V_std, V_VR5,paired = T, var.equal=F)
+                
+                
+                 percentile_DF_Pval_VR5$pvalue[fr]=  as.numeric(x[3][1])
+                
+                 if( as.numeric(x[1][1]) <= 1){percentile_DF_Pval_VR5$difference[fr] = 1}else {percentile_DF_Pval_VR5$difference[fr]= -1}
+                 
+                 
+                }
+na_percentile_DF_Pval_VR5 = percentile_DF_Pval_VR5[is.na (percentile_DF_Pval_VR5$pvalue),]
+percentile_DF_Pval_VR5_noNA =na.omit (percentile_DF_Pval_VR5)
+percentile_DF_Pval_VR5_noNA$DFR = p.adjust(as.numeric(percentile_DF_Pval_VR5_noNA$pvalue),method = "fdr")
+ranked_pval_signi_percentile = percentile_DF_Pval_VR5_noNA[percentile_DF_Pval_VR5_noNA$pvalue<0.01,]
+   
+
+   
+```
+   
+     
+```{r}
+
+   
+   #############fitness difference sucrose 
+   DF_fitness_name = data.frame(DF_fitness$S_name)
+   DF_Fitness_all = merge ( y =DF_fitness, by.y ="S_name",x = correspondance_SC,"V1",all.y=T ) 
+  DF_fitness_name$pvalue = 0
+   
+
+        FITNESS_S_STD = data.frame (V1 = DF_Fitness_all$V1,V2 =DF_Fitness_all$V2, pvalue = 0, difference = 0 ) #### std
+        FITNESS_S_STD$difference = 0
+           
+        
+        for (fr in 1 : nrow(DF_Fitness_all)){
+        
+        V_sucrose = as.numeric (DF_Fitness_all[fr, sucrose])
+        V_std= as.numeric (DF_Fitness_all[fr, STD])
+        
+        x = t.test(V_std, V_sucrose,paired = F, var.equal=F)
+        
+        if(as.numeric(x[1][1]) <= 1){FITNESS_S_STD$difference[fr] = 1}else {FITNESS_S_STD$difference[fr]= -1}
+        
+        FITNESS_S_STD$pvalue[fr]=  as.numeric(x[3][1])
+        }
+        
+        FITNESS_S_STD$FDR = p.adjust(as.numeric(FITNESS_S_STD$pvalue),method = "fdr")
+        
+        FITNESS_S_STD_S_ranked_pval_signi_STD = FITNESS_S_STD[FITNESS_S_STD$pvalue<0.01,]
+         
+           
+           FITNESS_S_STD_S_ranked_FDR_signi_STD= FITNESS_S_STD_S_ranked_pval_signi_STD[FITNESS_S_STD_S_ranked_pval_signi_STD$FDR < 0.05,]
+  
+        #################
+           
+           
+           
+                       FITNESS_S_VR5 = data.frame (V1 = DF_Fitness_all$V1,V2 =DF_Fitness_all$V2, pvalue = 0, difference = 0 ) #### VR5
+            FITNESS_S_VR5$difference = 0
+            for (fr in 1 : nrow(DF_Fitness_all)){
+            
+            V_sucrose = as.numeric (DF_Fitness_all[fr, sucrose])
+            V_VR5= as.numeric (DF_Fitness_all[fr, VR5])
+            
+            x = t.test(V_VR5, V_sucrose,paired = F, var.equal=F)
+            
+            if(as.numeric(x[1][1]) <= 1){FITNESS_S_VR5$difference[fr] = 1}else {FITNESS_S_VR5$difference[fr]= -1}
+            
+            FITNESS_S_VR5$pvalue[fr]=  as.numeric(x[3][1])
+            }
+            
+            FITNESS_S_VR5$FDR = p.adjust(as.numeric(FITNESS_S_VR5$pvalue),method = "fdr")
+            FITNESS_S_VR5_S_ranked_pval_signi_VR5 = FITNESS_S_VR5[FITNESS_S_VR5$pvalue<0.01,]
+            FITNESS_S_VR5_S_ranked_FDR_signi_VR5= FITNESS_S_VR5_S_ranked_pval_signi_VR5[FITNESS_S_VR5_S_ranked_pval_signi_VR5$FDR < 0.05,]
+            
+               
+   
+#################
+   
+   gene_diff_S_fit =  c( as.character(FITNESS_S_VR5_S_ranked_FDR_signi_VR5$V1), as.character( FITNESS_S_STD_S_ranked_FDR_signi_STD$V1))
+gene_diff_S_fit  = unique (gene_diff_S_fit )
+ 
+     ##########      
+
+
+DF_Fitness_all_S=  DF_Fitness_all[ DF_Fitness_all$V1 %in%  gene_diff_S_fit ,]
+DF_Fit_S_Diff = data.frame (V1 =DF_Fitness_all_S$V1,V2 =DF_Fitness_all_S$V2, pvalue = 0, difference = 0 ) #### diff VR5 std
+
+
+
+for (fr in 1 : nrow( DF_Fitness_all_S)){
+              
+              V_std = as.numeric ( DF_Fitness_all_S[fr, STD_paired])
+              V_VR5= as.numeric ( DF_Fitness_all_S[fr, VR5_paired])
+              
+              x = t.test(V_std, V_VR5,paired = T,  var.equal = F)
+              
+              DF_Fit_S_Diff$pvalue[fr]=  as.numeric(x[3][1])
+
+               if(as.numeric(x[1][1]) <= 1){ DF_Fit_S_Diff$difference[fr] = 1}else { DF_Fit_S_Diff$difference[fr]= -1}
+            
+              
+              
+}
+   
+  DF_Fit_S_Diff$DFR = p.adjust(as.numeric(  DF_Fit_S_Diff$pvalue),method = "fdr")
+  ranked_pval_signi_fitness_VR5_STD =   DF_Fit_S_Diff[  DF_Fit_S_Diff$pvalue<0.01,]
+   
+  
+  write.table(  DF_Fit_S_Diff, "Fitness pval .txt",sep = "\t",quote=F,row.names=F,dec=",")
+  write.table(percentile_DF_Pval_VR5_noNA , "percentile pval .txt",sep = "\t",quote=F,row.names=F,dec=",")
+  
+  
+      library(RAM)
+  ####### std sup VR5
+  
+  for (j in c(1, -1)){
+  
+  sup_1_fit = ranked_pval_signi_fitness_VR5_STD[ranked_pval_signi_fitness_VR5_STD$difference ==j,]
+  sup_1_per = ranked_pval_signi_percentile[ranked_pval_signi_percentile$difference ==j,]
+    
+    write.table(  sup_1_fit, paste ( "pval 0.01 Fitness pval", j , ".txt"),sep = "\t",quote=F,row.names=F,dec=",")
+  write.table(sup_1_per, paste ("pval 0.01 percentile pval", j , ".txt"),sep = "\t",quote=F,row.names=F,dec=",")
+  
+  
+  
+ print (paste ( "Fitness ", j , "number"))
+   group.venn(list( Fitness= sup_1_fit$V1 , Percentile = sup_1_per$V1),label=F,fill = c("orange", "blue"),
+    cat.pos = c(0, 0),
+    lab.cex=1.1)
+ 
+ print (paste ( "Fitness ", j , "ORF"))
+
+    group.venn(list( Fitness= sup_1_fit$V1 , Percentile = sup_1_per$V1),label=T,fill = c("orange", "blue"),
+    cat.pos = c(0, 0),
+    lab.cex=0.4)
+   
+    print (paste ( "Fitness ", j , "gene name"))
+    
+    group.venn(list( Fitness= na.omit(sup_1_fit$V2 ), Percentile = na.omit(sup_1_per$V2)),label=T,fill = c("orange", "blue"),
+    cat.pos = c(0, 0),
+    lab.cex=0.5)
+    
+    
+ 
+   
+
+
+    
+  }
+  
+     
+```
+   
+     
+```{r}
+
+  
+  #########mannual exe  
+   library(org.Sc.sgd.db)
+    library(topGO)
+  library(FGNet)
+  
+     sup_1_fit = ranked_pval_signi_fitness_VR5_STD[ranked_pval_signi_fitness_VR5_STD$difference ==1,]
+   sup_2_fit = ranked_pval_signi_fitness_VR5_STD[ranked_pval_signi_fitness_VR5_STD$difference ==-1,]
+  sup_1_per = ranked_pval_signi_percentile[ranked_pval_signi_percentile$difference ==1,]
+  sup_2_per = ranked_pval_signi_percentile[ranked_pval_signi_percentile$difference ==-1,]
+  
+  
+  test = read.table ( "perc 2.txt",header=F)
+  
+  geneLabels <- unlist(as.list(org.Sc.sgdGENENAME))
+genesYeast <- sort(geneLabels[which(geneLabels %in%  sup_1_fit$V1)])
+  
+  x=1
+  
+ #feaResults_topGO <- fea_topGO(genesYeast, geneIdType="GENENAME", organism="Sc", pValThr= 1, jobName = paste("Cluster",x), ) 
+#?fea_topGO
+
+#fea_topGO
+#library(RDAVIDWebService)
+
+#feaResults_David <- fea_david(names(genesYeast), geneLabels=genesYeast, 
+                           #email="leguille49@hotmail.com")
+#?fea_david
+
+
+
+
+#FGNet_report(feaResults_topGO, geneExpr=genesYeastExpr)  
+
+      
+```
+   
+     
+```{r}
+
+
+```{r}
+
+
+## PCA
+
+select_qualite= c("V","VR1","NC6 R (Filant)", "VR4", "")
+
+classement = read.table ( "classement des echantillons.txt",header= T,sep = "\t")
+
+
+t_DF_fitness = data.frame(t(DF_Fitness_all))
+
+x1 = t (t_DF_fitness[1,])
+x = as.character( x1)
+
+
+colnames(t_DF_fitness) = x
+
+t_DF_fitness = t_DF_fitness[-c(1,2),]
+
+t_DF_fitness$sample = rownames(t_DF_fitness)
+  
+  t_DF_fitness_Q = merge (classement, by.x ="Code.échantillon", t_DF_fitness,by.y = "sample", all.y=T)
+  
+
+  
+for (vf in 3:length(t_DF_fitness_Q) )
+  {
+    t_DF_fitness_Q[,vf]= as.character (t_DF_fitness_Q[,vf])
+    t_DF_fitness_Q[,vf]= as.numeric (t_DF_fitness_Q[,vf])
+    
+  }
+    
+  
+  rownames(  t_DF_fitness_Q) =  t_DF_fitness_Q$Code.échantillon
+  
+   t_DF_fitness_Q =  t_DF_fitness_Q[,-1]
+  
+   t_DF_fitness_Q = t_DF_fitness_Q[order(t_DF_fitness_Q$Classement),]
+   
+   
+   
+   F_position =   which( t_DF_fitness_Q$Classement %in% select_qualite,  arr.ind=T)
+   
+   order = data.frame( ID = rownames(t_DF_fitness_Q)[F_position], F_position )
+   
+   
+   t_DF_fitness_Q$Classement= as.character(t_DF_fitness_Q$Classement)
+   
+   t_DF_fitness_Q$Classement[is.na(t_DF_fitness_Q$Classement)] = "Sucrose control" 
+
+      t_DF_fitness_Q$Classement= as.character(t_DF_fitness_Q$Classement)
+
+res.pca <- PCA(t_DF_fitness_Q,      quali.sup =  1, graph=F  , ind.sup=  F_position  )
+
+               
+library(RColorBrewer)
+
+quali.sup = classement
+
+quali.sup$ordre = rownames(quali.sup )
+
+quali.sup$ordre = as.numeric(quali.sup$ordre)
+quali.sup$Classement = factor (quali.sup$Classement)
+
+colnames ( quali.sup) = c("ID", "classement","order")
+
+quali.sup = quali.sup[quali.sup$classement %in% select_qualite,]
+
+
+# 
+# (jColors <-
+#    with(quali.sup,
+#         data.frame(continent = unique(quali.sup),
+#                    color = I(brewer.pal(nlevels(quali.sup), name = 'Dark2'))))  )  
+
+
+
+#"#1B9E77" "" "#7570B3" "#E7298A" "#66A61E" "#E6AB02" "#A6761D"
+
+
+coR =  c ("#c924b6" ,"#2d242c", "#db810a", "#10827e", "#7570B3")
+
+ jColors <-data.frame(continent = unique(quali.sup$classement),color = I(coR ))
+                 #  color = I(brewer.pal(nlevels(quali.sup$classement), name = 'Dark2')))
+
+quali.sup= data.frame(quali.sup,  matchRetVal = match(quali.sup$classement, jColors$continent))
+
+
+quali.sup3 = merge(x = quali.sup, y = jColors, by.y = "continent", by.x= "classement", all.x =T )
+
+
+head(quali.sup3)
+
+quali.sup3 = quali.sup3[order(quali.sup3$order),]
+
+
+sample_name = unique(row.names( t_DF_fitness_Q))
+
+quali.sup3= quali.sup3[quali.sup3$ID %in%sample_name, ]
+
+
+quali.sup3 = merge (x =order, y =quali.sup3, by.x = "ID", by.y = "ID")
+
+quali.sup3= quali.sup3[order(quali.sup3$F_position),]
+
+
+
+A = fviz_pca_ind(res.pca ,   habillage =  1 , label=  T , pointsize=1.5, ,addEllipses=TRUE,ellipse.level=0.70,   labelsize =3,  repel = T, palette="Set1", col.ind.sup=c(quali.sup3$color),geom = c("point", "text"))
+
+A
+
+
+
+colnames (quali.sup3)[4] = "num"
+
+quali.sup3$num = as.numeric(quali.sup3$num) 
+
+FF = I(coR )
+
+
+
+
+ggplot (quali.sup3, aes( x = ID, y =num ) ) + geom_point(aes(colour = classement),size=5) +   scale_colour_manual(values = FF,  labels=c("V","VR4","VR1","VR6","Not_classified"))
+
+
+
+
+
+```
+
