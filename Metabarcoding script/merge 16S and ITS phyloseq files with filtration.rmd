@@ -1,0 +1,335 @@
+######Guillaume Nguyen Script Abundance and merge phyloseq version 1.0 (ready to use)
+##### Filteau lab 3.12.18
+#### guillaume.nguyen.quang@gmail.com for suggestion troubleshooting
+## https://github.com/guillaumeQnguyen/Script for associated scripts (metagenomics...)
+
+---
+  title: "merge phyloseq"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+  
+  ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r }
+
+#Library and script function
+library(data.table)
+
+library(reshape2)
+library(ggplot2)
+library(phyloseq)
+library(stringr)
+
+## function used for this script
+order_axis<-function(data, axis, column)
+{
+  # for interactivity with ggplot2
+  arguments <- as.list(match.call())
+  col <- eval(arguments$column, data)
+  ax <- eval(arguments$axis, data)
+  
+  # evaluated factors
+  a<-reorder(with(data, ax), 
+             with(data, col))
+  
+  #new_data
+  df<-cbind.data.frame(data)
+  # define new var
+  within(df, 
+         do.call("<-",list(paste0(as.character(arguments$axis),"_o"), a)))
+}
+
+phyloseq = phyloseq2
+
+OTU_DF_ddpcr_phyloseq2 = Abundance_cal_phyloseq( phyloseq2, 
+                                                 ddpcr = ddpcr_df, 
+                                                 name.output = "ITS"  )
+
+
+
+OTU_DF_ddpcr_phyloseq2 = Abundance_cal_phyloseq( phyloseq2, 
+                                                 ddpcr = ddpcr_df, 
+                                                 name.output = "ITS"  )
+
+
+Abundance_cal_phyloseq = function(phyloseq, ddpcr,OTU_threshold = 0.005, Directory = date_fold,name.output= "phylo"   )  ## verif doit etre fait
+{
+  
+  
+  phyloseq_OTU_count = data.frame(otu_table(phyloseq))  ### read OTU number per Phyloseq
+  phyloseq_OTU_taxa = data.frame(phyloseq@tax_table@.Data)  ### read OTU number per Phyloseq
+  
+  phyloseq_OTU_count$sample = rownames( phyloseq_OTU_count) #### extract sample name
+  phyloseq_OTU_countddpcr = merge (phyloseq_OTU_count, ddpcr, by.x = "sample", by.y = "full_name") # merge sample and DDpcr file
+  # phyloseq_OTU_countddpcr =  (phyloseq_OTU_countddpcr[,c(-1, -ncol(phyloseq_OTU_countddpcr))]) # remove name colum 
+  rownames(phyloseq_OTU_countddpcr) = phyloseq_OTU_countddpcr$sample
+  phyloseq_OTU_countddpcr_sum =data.frame( phyloseq_OTU_countddpcr$sample, sum =0) # create DF for sum
+  
+  ### calculate sum by sample
+  for (x in (1: nrow(phyloseq_OTU_count))) {
+    phyloseq_OTU_countddpcr_sum[x,2] = sum (phyloseq_OTU_count[x,-ncol ( phyloseq_OTU_count)])
+  }
+  #### calculate abundance with ddpcr
+  i=1
+  for (g in 1: (nrow(phyloseq_OTU_countddpcr))) {
+    
+    row_threshold_0 =  which(  phyloseq_OTU_countddpcr[ g, ] < OTU_threshold * phyloseq_OTU_countddpcr_sum[g,2] )
+    row_threshold_value =  which(  phyloseq_OTU_countddpcr[ g, ] >= OTU_threshold * phyloseq_OTU_countddpcr_sum[g,2] )
+    row_threshold_value =  row_threshold_value[-c(1,length(row_threshold_value))]
+    
+    phyloseq_OTU_countddpcr[g , row_threshold_value] = round ( phyloseq_OTU_countddpcr$Copies.ml.seve.concentre.moins.brix[g] * 
+                                                                 (phyloseq_OTU_countddpcr[g, row_threshold_value] / phyloseq_OTU_countddpcr_sum[g,2] ), 0)
+    
+    phyloseq_OTU_countddpcr[g , row_threshold_0] = 0
+    
+  }
+  write.table (phyloseq_OTU_countddpcr, paste0 (Directory,Sys.Date()," ",name.output ,"abundance_DF.txt" ), quote= F, sep = "\t")
+  #####
+  phyloseq_OTU_countddpcr$sample = rownames(phyloseq_OTU_countddpcr)
+  phyloseq_OTU_countddpcr_M = reshape2::melt ( phyloseq_OTU_countddpcr, id.vars = "sample", variable.name = "sequence")## melt
+  phyloseq_OTU_taxa$sequence = rownames( phyloseq_OTU_taxa)
+  phyloseq_OTU_count = merge (phyloseq_OTU_countddpcr_M , phyloseq_OTU_taxa, by=  "sequence")#, all.x = T ) ### ,merge sequence taxa and count
+  
+  #ggplot (ddpcr, aes( ddpcr$full_name , ddpcr$Copies.ml.seve.concentre.moins.brix)) + geom_histogram(stat= "identity")+ theme(axis.text.x = element_text(angle = 60, hjust = 1))
+  table_abundance = phyloseq_OTU_count
+  table_abundance_S  =table_abundance[, c("sequence","sample","value")] ## select abundance OTU and sample 
+  table_abundance_S  = dcast(table_abundance_S ,   sequence ~ sample ) # generate data.frame for abundance
+  rownames(table_abundance_S) = table_abundance_S $sequence ## set rownames to sequence
+  table_abundance_S  = table_abundance_S [,-1] ## remove sequence column
+  table_abundance_S  = otu_table(table_abundance_S ,taxa_are_rows =T ) ### make abundance phyloseq format
+  table_abundance_S2  = merge_phyloseq (table_abundance_S ,phyloseq@tax_table ,
+                                        phyloseq@sam_data) ### recreate phyloseq for filter
+  print(table_abundance_S2)
+  saveRDS(table_abundance_S2,paste0( Directory,Sys.Date(), " phyloseq file Abundance normalized by ddpcr", name.output))
+  return  (table_abundance_S2  )
+}
+
+
+
+
+
+
+Filtering_phyloseq_binary = function (phyloseq_abundance, Initial_phyloseq,  
+                               set_prevalence_value =5,
+                               removed_sample ="",
+                               set_abundance_value =20, output.name.file = "phylo1", Directory= date_fold) {  
+  
+  gpt = phyloseq_abundance # purge sample with no sequences
+  wh0 = genefilter_sample(gpt, filterfun_sample(function(x) x > set_abundance_value), 
+                          A=round(set_prevalence_value*nsamples(gpt),0)) ## filtration by prevalence and abundance
+  GP1 = prune_taxa(wh0, gpt) ## apply filtration
+  write.table(GP1@otu_table@.Data,paste0( Directory,Sys.Date(), output.name.file,"count sequences.txt") ,quote= F, row.names=T, sep=  "\t" ) ### write table count abundance 
+  print(GP1) 
+  GP1 = melt (GP1@otu_table )
+  colnames(GP1) = c("sequence","sample","value")
+  
+  table_abundance= data.frame(tax_table(phyloseq_abundance))
+  table_abundance$sequence = rownames(table_abundance)
+  GP1 =  merge (GP1, by= c ( "sequence") , table_abundance,  all.x = T)
+  
+  return(GP1)
+  
+  GP1$value [  GP1$value>1 ] = 1
+  GP1$value [  GP1$value<1 ] = 0
+  return(GP1)
+  
+}
+
+merge_phyloseq_costum = function(Phylo1, Phylo2, sample_description_table, output.name.file = "ouput", Directory=  date_fold   ){   
+  Phylo1 = Phylo1[,-10]
+  Phylo2 = Phylo2[,-10]
+  
+  phylo_merge = rbind  (Phylo1 , Phylo2)
+  
+  phylo_merge_name = phylo_merge$sample
+  phylo_merge_name = sub("-GN" ,"", phylo_merge_name)
+  phylo_merge_name = sub("-16S" ,"", phylo_merge_name)
+  phylo_merge_name = sub("-ITS" ,"", phylo_merge_name)
+  phylo_merge_name = sub("GN-" ,"", phylo_merge_name)
+  phylo_merge$sample2 = phylo_merge_name
+  write.table(phylo_merge_name, paste0(Directory,Sys.Date(), "name_extract.txt"), quote= F, sep = "\t" )
+  
+  ###########
+  
+  #####IMPORT:
+  phylo_merge_Df =  reshape2::dcast( phylo_merge, sample2  ~  sequence, value.var = "value",fun.aggregate = sum,fill = 0)     #####create dataframe
+  
+  phylo_merge_Df_t = t(phylo_merge_Df)    
+  colnames( phylo_merge_Df_t )  =  phylo_merge_Df_t[1,] ### set rownames
+  phylo_merge_Df_t= phylo_merge_Df_t[-1,] ### remove  col name
+  phylo_merge_Df_t= data.frame(phylo_merge_Df_t)
+  for (x in 1: ncol(phylo_merge_Df_t)){
+    phylo_merge_Df_t[,x] = as.numeric(as.character(phylo_merge_Df_t[,x]))
+  }
+  
+  data_sample_car = sample_description_table
+  taxa_df = data.frame(unique (phylo_merge[,c(1,4:9)]) )
+  rownames( taxa_df) =  taxa_df$sequence 
+  colnames(taxa_df)[1] = "OTU"
+  
+  #### preparation for OTU count and taxa DF to phyloseq
+  OTU_phy = otu_table(phylo_merge_Df_t, taxa_are_rows = TRUE)
+  tax_phy =  tax_table(as.matrix(taxa_df))
+  
+  
+  name_sample = colnames(OTU_phy@.Data)
+  
+  #### preparation for sample critera DF to phyloseq
+  data_sample_car$Code.échantillon = as.character(data_sample_car$Code.échantillon )
+  data_sample_car$Code.échantillon = sub("-","." ,data_sample_car$Code.échantillon )
+  data_sample_car$Code.échantillon = sub("-","." ,data_sample_car$Code.échantillon )
+  
+  data_sample_car2= data_sample_car[data_sample_car$Code.échantillon %in% colnames(OTU_phy@.Data), ]
+  colnames(OTU_phy@.Data)[!(colnames(OTU_phy@.Data) %in% data_sample_car$Code.échantillon)]
+  select_sample = as.character (data_sample_car2[,2])
+  
+  meta = sample_data(data_sample_car) 
+  meta@row.names= select_sample
+  meta@row.names= meta@.Data[[2]]
+  
+  phyloseq_merged = phyloseq(OTU_phy, tax_phy, meta)#, phy_tree)
+  saveRDS(phyloseq_merged ,paste0(Directory,Sys.Date(), output.name.file,".rds",sep = ""))
+  
+  return(phyloseq_merged)
+  
+}
+
+Filtering_phyloseq = function (phyloseq_abundance, Initial_phyloseq,  
+                               set_prevalence_value =0.1,
+                               removed_sample ="",
+                               set_abundance_value =20, output.name.file = "phylo1", directory =date_fold) {  
+  
+  gpt = phyloseq_abundance # purge sample with no sequences
+  wh0 = genefilter_sample(gpt, filterfun_sample(function(x) x > set_abundance_value), 
+                          A=round(set_prevalence_value,0)) ## filtration by prevalence and abundance
+  GP1 = prune_taxa(wh0, gpt) ## apply filtration
+  write.table(GP1@otu_table@.Data,paste0(directory, Sys.Date(), output.name.file,"count sequences.txt") ,quote= F, row.names=T, sep=  "\t" ) ### write table count abundance 
+  print(GP1) 
+  GP1 = melt (GP1@otu_table )
+  colnames(GP1) = c("sequence","sample","value")
+  
+  table_abundance= data.frame(tax_table(phyloseq_abundance))
+  table_abundance$sequence = rownames(table_abundance)
+  GP1 =  merge (GP1, by= c ( "sequence") , table_abundance,  all.x = T)
+  
+  return(GP1)
+  
+}
+
+
+
+#########################################################
+#### own parameter to set
+      Dir_path = "~/OneDrive - Universite Laval (1)/metagenomic/2801-11-30 merge 16S ITS last/" #main directory
+      setwd(Dir_path)
+      input_dir = "" ## set input file directory ex: "input/"
+      date_fold = paste (Sys.Date(),"output/") ## set output file directory ex: "output/"
+
+#### phyloseq input 
+    #phyloseq 1 to merge
+      phyloseq1 = readRDS( paste (  input_dir , "16Sphyloseq_file.rds", sep = ""),
+                        refhook = NULL)
+      outputfile.name.phylo1 = "16s" ## set the output file name for traceability
+    #phyloseq 2 to merge
+      phyloseq2 = readRDS( paste (  input_dir , "ITSphyloseq_file.rds", sep = ""),
+                        refhook = NULL)
+      outputfile.name.phylo2 = "ITS" ## set the output file name for traceability
+      outputfile.name.merge =  "filtrated 16S and ITS  merge"
+#### table description for sample ( variable)
+    sample.description = read.table ( paste( input_dir ,"table sample description (not complete).txt", sep = ""), header= T , sep = "\t",fill= T)
+
+### filtering value
+    OTU_low_count_threshold = 0.0005
+  Prevalence_value = 5 ### set prevalence (occurence number in x samples )
+  Abundance_value = 0 ### min abundance value in all sample to be considered as occurrence
+  ### set sample to removed in phylo1
+  sample_to_remove_phylo1 =  c (  "2015-1-16S-GN", "2015-2-16S-GN","2015-3-16S-GN","2015-4-16S-GN",
+                                  "2015-5-16S-GN","2015-6-16S-GN","2015-8-16S-GN","2015-9-16S-GN",
+                                  "2015-10-16S-GN","2015-11-16S-GN","2015-17-16S-GN","MM1-16S-GN",
+                                  "Aj1g-16S-GN") 
+  ### set sample to removed in phylo1                                
+  sample_to_remove_phylo2 =   c ("GN-r2-17b-ITS","GN-2015-3-ITS","GN-MM1-ITS","GN-2015-17-ITS")	 
+
+## DDpcr table per phyloseq and sample
+  ddpcr_df= read.table ( paste (  input_dir , "ddpcr value.txt", sep = ""), header = T, sep = "\t")
+
+### set True if you have ddpcr data
+  calculate_real_abundance =  T
+  
+###############################  
+##########################
+##### Encoding 
+  sequence_OTU_phylo1 = rownames(phyloseq1@tax_table@.Data)
+  sequence_OTU_phylo2 = rownames(phyloseq2@tax_table@.Data)
+  
+  
+  shared =  sequence_OTU_phylo1[sequence_OTU_phylo1 %in% sequence_OTU_phylo2]
+  
+  
+  
+  
+#### outputfile creation  
+if (date_fold !=""  ){  dir.create(path = str_sub(date_fold, 1, str_length(date_fold)-1)    ) }
+  
+  
+  
+#####  real Abundance valuated by ddpcr
+if (calculate_real_abundance ==  T) {
+
+###### apply DDPCR abundance 
+OTU_DF_ddpcr_phyloseq1 = Abundance_cal_phyloseq( phyloseq1, ddpcr_df,OTU_threshold =OTU_low_count_threshold  ,name.output = "16S"  )
+OTU_DF_ddpcr_phyloseq2 = Abundance_cal_phyloseq( phyloseq2, ddpcr_df, OTU_threshold =,OTU_low_count_threshold , name.output = "ITS"  )
+}
+#
+ 
+  
+   
+#### remove sample form phyloseq  
+  OTU_DF_ddpcr_phyloseq1_SF = subset_samples(OTU_DF_ddpcr_phyloseq1 , !(sample_names(OTU_DF_ddpcr_phyloseq1) %in% 
+                                                                          sample_to_remove_phylo1))
+  OTU_DF_ddpcr_phyloseq2_SF = subset_samples(OTU_DF_ddpcr_phyloseq2 , !(sample_names(OTU_DF_ddpcr_phyloseq2) %in% 
+                                                                          sample_to_remove_phylo2))
+  
+  
+  #####filtering value by abundance and prevalence
+ 
+
+  
+
+OTU_DF_ddpcr_phyloseq1_filtrated = Filtering_phyloseq( phyloseq_abundance = OTU_DF_ddpcr_phyloseq1_SF, 
+                                                Initial_phyloseq =phyloseq1,
+                                                removed_sample =sample_to_remove_phylo1 , 
+                                                set_prevalence_value = Prevalence_value,
+                                                set_abundance_value = Abundance_value,
+                                                output.name.file =  outputfile.name.phylo1)
+
+OTU_DF_ddpcr_phyloseq2_filtrated = Filtering_phyloseq( phyloseq_abundance = OTU_DF_ddpcr_phyloseq2_SF, 
+                                                       Initial_phyloseq = phyloseq2,
+                                                 removed_sample =sample_to_remove_phylo2 , 
+                                                 set_prevalence_value = Prevalence_value,
+                                                 set_abundance_value = Abundance_value,
+                                                 output.name.file =  outputfile.name.phylo2)
+######
+
+sequence_OTU_phylo1 =   unique(as.character(OTU_DF_ddpcr_phyloseq1_filtrated$sequence))
+sequence_OTU_phylo2 =   unique(as.character(OTU_DF_ddpcr_phyloseq2_filtrated$sequence))
+
+shared =  sequence_OTU_phylo1[sequence_OTU_phylo1 %in% sequence_OTU_phylo2]
+
+
+
+
+##### merge phyloseq create  file
+merge_phyloseq = merge_phyloseq_costum ( OTU_DF_ddpcr_phyloseq1_filtrated ,
+                                         OTU_DF_ddpcr_phyloseq2_filtrated,
+                        sample_description_table = sample.description,
+                        output.name.file = outputfile.name.merge 
+                        )
+
+  
+  
+  
