@@ -1,0 +1,169 @@
+---
+title: "Fitness determination tecan curve"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#call library()
+
+library("scales")
+library("tidyr")
+library(ggplot2)
+library(reshape)
+
+
+## Call function
+
+reverselog_trans <- function(base = exp(1)) {
+  trans <- function(x) -log(x, base)
+  inv <- function(x) base^(-x)
+  trans_new(paste0("reverselog-", format(base)), trans, inv, 
+            log_breaks(base = base), 
+            domain = c(1e-100, Inf))
+}
+
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+
+
+
+
+
+
+```
+
+```{r format_type, }
+
+# set directory
+setwd("~/OneDrive - Universite Laval (1)/projet coculture ( interaction )/tecan surnageant/experimen/1")
+
+##read tecan data
+
+data= read.table( "mg")
+
+###merge raw data with annotation (strain and condition) 
+plate = na.omit(plate)
+plate_remove_blank = plate
+
+#### remove blank
+select_condition = na.omit( unique ( plate$Condition))
+h = 1
+for (f in select_condition ){
+  select_blanc = plate[ plate$Condition == f & plate$Strain == "blank",]
+  select_plate =  plate[ plate$Condition == f & plate$Strain != "blank",]
+
+  for (x in nrow( select_plate)){
+    plate_remove_blank[h,1 ] = select_plate[x ,1]
+    plate_remove_blank[h,2 ] = select_plate[x ,2]
+    plate_remove_blank[h,3 ] = select_plate[x ,3]
+    plate_remove_blank[h,4 ] = select_plate[x ,4]
+    plate_remove_blank[h ,-c(1:4)] =   select_plate[x ,-c(1:4)] -  select_blanc[ ,-c(1:4)]
+  h=h+1
+  
+}
+
+
+
+##extact curve parameter Growth_Rate  , Inflection_Point, Asymptote 
+Plate_parameter = plate_remove_blank[,c(1:4)]
+Plate_parameter$Growth_Rate =0
+Plate_parameter$Inflection_Point =0
+Plate_parameter$Asymptote =0
+
+
+
+
+
+ fm1 =  try(nls(XTM2$value  ~ SSlogis(XTM2$variable, Asym=Asym2, b2, b3), data = XTM2[,c(5,6)])  ,silent=T)
+
+
+  if (class(fm1) == "try-error") 
+    {   fm1 = 0  
+  f = 0 
+  f1 = 0
+  f2 =0 }else { f =  coef(fm1)[[1]]
+    f1 = coef(fm1)[[2]]
+    f2 =coef(fm1)[[3]]  }
+  #fm1 
+
+
+
+
+
+
+
+###### Area Determination  
+
+Plate_parameter$Area =0
+
+  for  ( hh in unique(para_condition_na$V1)){ 
+    well  = hh
+    
+    
+    para_w= para_w2[para_w2$V1 == well,]
+   
+    # Aller chercher les valeurs de tous les coefficientt
+    
+    
+    a <-  para_w$Estimate[ para_w$Parameter == "Growth Rate"]
+    b <-  para_w$Estimate[ para_w$Parameter == "Inflection Point"]
+    c <-  para_w$Estimate[ para_w$Parameter == "Asymptote"]
+    
+    
+    # Equation de la courbe sigmoide (modele sigmoide logistic 3P)
+    equation_Time <- function(Time) {c/(1+ exp(-a*(Time - b)))}
+    
+    # Faire l'integrale de la courbe avec le temps allant de 0 a 48 heures
+    x <- integrate(equation_Time, lower = 0, upper = 48)
+    
+    aire2$Growth_Rate[aire2$well == well &  aire2$plaque ==  plaque] <- a
+    aire2$Inflection_Point[aire2$well == well &  aire2$plaque ==  plaque] <- b
+    aire2$Asymptote[aire2$well == well &  aire2$plaque ==  plaque] <- c
+    aire2$Area[aire2$well == well &  aire2$plaque  ==  plaque] <- x$value 
+    
+  }
+}
+
+
+
+```
+
