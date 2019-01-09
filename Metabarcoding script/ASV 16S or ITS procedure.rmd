@@ -1,0 +1,408 @@
+---
+##https://benjjneb.github.io/dada2/tutorial.html
+##Documentation License: CC-BY 4.0
+## https://github.com/guillaumeQnguyen/Script for associated scripts (metagenomics...)
+title: "Filteau metagenomic file"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+Introduction
+
+Script used for metagenomics on 16S and ITS barcoding region (amplicon, full genome is not supported). It used https://benjjneb.github.io/dada2/tutorial.html procedure. read tutorial for more information. Majors steps are similar with accomodation commande line for a friendly used for unexperimented R user. 
+
+Please read and modified the second parameter chunck with your own parameters ( files folder input and output).
+
+Files required are compressed fastQ with similar names with additional extend for the forward (ex : filename_R1_001.fastq.gz) and reverse (ex :filename_R2_001.fastq.gz).
+
+Build as Mackdown file, it have to be used step by step due to the remove chimera step. It requiere terminal execution. 
+this file has been made under R version 3.8, R studio Version 1.1.453
+
+requiere package are `dada2` `phangorn` `phyloseq`  `DECIPHER` `reshape2`
+
+#setup chunck, dont change
+```{r setup, include=FALSE}
+      knitr::opts_chunk$set(echo = TRUE)
+      ####setting package and function
+      library(dada2)#;# packageVersion("dada2")
+      library(phangorn)
+      library(phyloseq)
+      library(DECIPHER)
+      library(reshape2)
+```
+
+
+
+Set your own parameters ( files localisation and directory), please read the quote information (#...) and fill the corresponding informations
+```{r, parameter}
+##### Amplification region
+  metabarcoding = "16S"
+  
+  #Your own setting
+  Dir_path = "~//OneDrive - Universite Laval (1)/metagenomic/" #Set you directory file 
+  setwd(Dir_path ) #set directory 
+  date_fold ="2018-12-20-16S Acer center Data" #date or directory name where generated file will be saved (output) #date_fold = Sys.Date() #optional replacement
+  sample.description =  read.table("input/table_sample_characteristicAcer.txt", sep = "\t",header =T) #set sample description. SampleID need to be your colname for the sample. requiere format will depend on your fasta names. it have to fit 
+  head(sample.description)
+  #path <- "~/Desktop/gqngu/OneDrive - Universite Laval/Marie Filteau - Donnees Acer/" # sample forward and reverse localisation (samples input)
+ path <- "~/Universite Laval/Marie Filteau - Donnees Acer/" # sample forward and reverse localisation (samples input)
+ 
+  # Sample_number = 1: 52 # set nb of samples (forward  + reverse = 1 sample)
+
+```
+
+set the taxonomic reference for your sequence 
+```{r, reference}
+
+  #taxonomy_database = "~/OneDrive - Universite Laval (1)/metagenomic/input/sh_general_release_dynamic_01.12.2017.fasta"
+  taxonomy_database = "~/Desktop/gqngu/OneDrive - Universite Laval/metagenomic/input/silva_nr_v132_train_set.fa.gz"
+  ##taxonomic database used for 16S or ITS, database can be found in  : 
+  #16S  : https://www.arb-silva.de/download/archive/qiime  / recommanded file : silva_species_assignment_v132.fa.gz 
+  #ITS :  https://plutof.ut.ee/#/doi/10.15156/BIO/587475 /  recommanded file : sh_general_release_dynamic_01.12.2017.fasta  
+  #see also https://docs.qiime2.org/2018.11/data-resources/ for aditionnal database
+
+```
+As previously said, we used Uchime for vsearch script. unfortunatly, you can't used vsearch directly in R, terminal execution have to be done. 
+
+set your folder where vsearch-2.8.1 is install
+
+procedure will requiere terminal execution after chunck  'write fasta' script line 238
+
+```{r, unchime}
+ Uchime_denovo_file = "~/Downloads/vsearch-2.10.3/bin/" # directory where vsearch is install
+```
+
+
+
+#Quality and and trim sequences parameter, see  filterAndTrim() data2 package function for more information. 
+
+Callahan et al 2016 advice.
+
+Considerations for your own data: Your reads must still overlap after truncation in order to merge them later! The tutorial is using 2x250 V4 sequence data, so the forward and reverse reads almost completely overlap and our trimming can be completely guided by the quality scores. If you are using a less-overlapping primer set, like V1-V2 or V3-V4, your truncLen must be large enough to maintain 20 + biological.length.variation nucleotides of overlap between them
+
+Considerations for your own data: The standard filtering parameters are starting points, not set in stone. If you want to speed up downstream computation, consider tightening maxEE. If too few reads are passing the filter, consider relaxing maxEE, perhaps especially on the reverse reads (eg. maxEE=c(2,5)), and reducing the truncLen to remove low quality tails. Remember though, when choosing truncLen for paired-end reads you must maintain overlap after truncation in order to merge them later.
+
+Considerations for your own data: For common ITS amplicon strategies, it is undesirable to truncate reads to a fixed length due to the large amount of length variation at that locus. That is OK, just leave out truncLen. Make sure you removed the forward and reverse primers from both the forward and reverse reads though!
+ 
+
+```{r, trim parameter}
+  setwd(Dir_path ) #set directory 
+  set_trunc_leng =c(255,225)   #default : truncLen=c(255,225),
+  set_maxN =0                  #default : maxN=0, 
+  set_maxEE=c(2,2)             #default : maxEE=c(2,2), 
+  set_truncQ=2                 #default : truncQ=2, 
+  set_trimLeft = 0           #default : trimLeft = 10
+  minseq = 4 #### set minimun sequence number to consider ( should be based on the min number of occurence / total samples ex : 4 for 40 samples =  10% )
+```
+encoding process, should work by it own, do not change
+```{r}
+#### encoding step
+              setwd(Dir_path ) #set directory 
+              dir.create(path = paste(  date_fold )) #create output file
+              out_P_all = NULL
+              pathf = list.dirs(path)
+              
+              file.info (pathf[2])
+      filesizeall =  NULL    
+        for (z in  pathf[-1]) {     
+                   
+               x = (list.files (z))
+           s =   file.info ( paste0 (z,"/",x) )
+            s$name = x
+       filesizeall = rbind (filesizeall,s) 
+      
+        }               
+        
+      write.table (  filesizeall, paste0(date_fold , "/initial file info.txt"), quote = F, sep = "\t")
+      
+      
+  
+      
+            
+        for (z in  pathf[-1]) {     
+              
+          paths = z
+              fnFs <- sort(list.files(paths, pattern="_R1_001.fastq", full.names = TRUE)) #attribute forward file
+              fnRs <- sort(list.files(paths, pattern="_R2_001.fastq", full.names = TRUE))#attribute reverse file
+              sample.names <- sapply(strsplit(basename(fnFs), "_"), `[`, 1) #attribute sample names
+              fnFs <- fnFs
+              fnRs <-  fnRs
+              plotQualityProfile(fnFs[1:2])
+              plotQualityProfile(fnRs[1:2])
+
+# output filter localisation.  Filtered forward and reverse files go into the path/filtered/
+outputfile = file.path(paste0 ( date_fold,"/",metabarcoding, "Output"), "filtered") 
+
+#encoding step
+            setwd(Dir_path ) #set directory 
+            filtpathF <- file.path(outputfile) # Filtered forward files go into the pathF/filtered/ subdirectory
+            filtpathR <- file.path(outputfile) # ...
+            fastqFs <- sort(list.files(paths, pattern="_R1_001.fastq"))#, full.names = TRUE))
+            fastqRs <- sort(list.files(paths, pattern="_R2_001.fastq"))#, full.names = TRUE))
+            if(length(fastqFs) != length(fastqRs)) stop("Forward and reverse files do not match.") #check if same number or forward and reverse
+            
+            #  data reduction for debugging if needed (do not change)
+            filtpathF = filtpathF
+            filtpathR = filtpathF
+            fnFs = filtpathF 
+            fnRs = filtpathF 
+            
+            #main trim step
+            out <- filterAndTrim(fwd=file.path(paths, fastqFs), 
+                                 filt=file.path(filtpathF, fastqFs),
+                                 rev=file.path(paths, fastqRs), 
+                                 filt.rev=file.path(filtpathR, fastqRs)
+                          , truncLen=set_trunc_leng,
+                          maxN=set_maxN , maxEE=set_maxEE, 
+                          truncQ=set_truncQ, rm.phix=TRUE,trimLeft = set_trimLeft,verbose = T,
+                          compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
+
+out_P = data.frame(out)
+out_P_all = rbind (out_P_all,out_P)          
+}
+```
+#filtrated files are saved in your `outputfile` folder
+Trim output check up
+
+```{r}
+        ### table of % of read lost and kept
+        out_P = data.frame(out)
+        out_P$pourc = out_P$reads.out*100 / out_P$reads.in 
+        out_P[order(out_P$pourc),]
+
+```
+
+
+```{r}
+            setwd(Dir_path ) #set directory
+            ########## encoding step
+             x = (list.files (paste0 ( date_fold,"/",metabarcoding, "Output/", "filtered")))
+            filesizeall_filtrated = file.info (paste0 ( date_fold,"/",metabarcoding, "Output/", "filtered/",x)  )
+            filesizeall_filtrated$name = x
+            write.table (  filesizeall_filtrated, paste0(date_fold , "/initial file info_filtrated.txt"), quote = F, sep = "\t")
+      
+
+
+            filtFs <- list.files(filtpathF, pattern="_R1_001.fastq", full.names = TRUE) #select filtrated forward file
+            filtRs <- list.files(filtpathR, pattern="_R2_001.fastq", full.names = TRUE) #select filtrated forward file
+            
+            #  data reduction for debugging if needed (do not change)
+            filtFs = filtFs#[Sample_number]
+            filtRs = filtRs#[Sample_number]
+            
+            ####
+            sample.names <- sapply(strsplit(basename(filtFs), "_"), `[`, 1) # Assumes filename = filename_R1_001.fastq.gz
+            sample.namesR <- sapply(strsplit(basename(filtRs), "_"), `[`, 1) # Assumes filename = filename_R2_001.fastq.gz
+            if(!identical(sample.names, sample.namesR)) stop("Forward and reverse files do not match.")  #check if same number or forward and reverse
+            names(filtFs) <- sample.names #Attribute sample names to file
+            names(filtRs) <- sample.names #Attribute sample names to file
+            
+            ####Dada2 error learning
+            # Learn forward error rates
+            errF <- learnErrors(filtFs, multithread=TRUE)
+            # Learn reverse error rates
+            errR <- learnErrors(filtRs,  multithread=TRUE)
+            ### PLOT ERROR learning (saved in folder)
+            x = plotErrors(errF, nominalQ=TRUE)
+            pdf ( paste (  date_fold  ,"/modelisation error F.pdf", sep = ""))
+            plot (plotErrors(errF, nominalQ=TRUE))
+            dev.off()
+            plotErrors(errR, nominalQ=TRUE)
+            pdf ( paste (  date_fold  ,"/modelisation error R.pdf", sep = ""))
+            plot (plotErrors(errR, nominalQ=TRUE))
+            dev.off()
+            ####dada2 core script (dereplication and merge)
+            # Sample inference and merger of paired-end reads
+            mergers <- vector("list", length(sample.names))
+            names(mergers) <- sample.names
+            dff_all  <- vector("list", length(sample.names))
+            dfr_all  <- vector("list", length(sample.names))
+            
+            for(sam in sample.names) {
+              cat("Processing:", sam, "\n")
+                derepF <- derepFastq(filtFs[[sam]])
+                ddF <- dada(derepF, err=errF, multithread=TRUE) #dereplication forward
+                dff_all[[sam]] <- ddF
+                derepR <- derepFastq(filtRs[[sam]])
+                ddR <- dada(derepR, err=errR, multithread=TRUE)#dereplication reserve
+                dfr_all[[sam]] <- ddR
+                merger <- mergePairs(ddF, derepF, ddR, derepR) #merge forward and reverse
+                mergers[[sam]] <- merger
+            }
+            
+            rm(derepF); rm(derepR)  #clean memory
+            rm(derepF); rm(derepR)  #clean memory
+            
+            # Construct sequence table and remove chimeras
+            seqtab <- makeSequenceTable(mergers)
+            saveRDS(seqtab, paste (  date_fold , "/seqtab.rds", sep = "")) ###save dereplication file under RDS file
+
+```
+
+A chimera created in the kth round should have an abundance ratio of ~2k because the parents are duplicated by all N rounds while the chimera is duplicated by the N–k remaining rounds after it is formed. The lowest observed abundance ratios should therefore be ~2 due mostly to chimeras formed in the first round. 
+
+```{r, dereplication to fasta file}
+        #Remove chimeras
+        setwd(Dir_path ) #set directory
+        seqtab  = readRDS( paste (  date_fold , "/seqtab.rds", sep = ""),refhook = NULL) #read dereplication files previsouly generate
+        seqtable_selected = seqtab ### intermediate step for debugging, dont change
+        
+        #generate fasta file
+        seq_all = data.frame(seqtable_selected)
+        seq_all_v= colnames(seq_all)
+        seq_all_v_s = seq_all_v
+        seq_all_v_s = unique(seq_all_v_s )
+        seq_all_table = seq_all[,seq_all_v_s]
+        seq_all_table_sum = apply(seq_all_table,2,sum)
+        x = data.frame( seq_all_table_sum )
+        x = x[x$seq_all_table_sum>minseq, ,drop=FALSE] ### remove 1 count sequence
+        rownames(x)[2] 
+        x2 = data.frame ( paste (">Seq_",1:nrow(x),";size=", x$seq_all_table_sum,";",sep = ""),  paste (rownames(x) ,sep = ""))
+        ```
+        
+        #### here we will use Uchime_denovo to remove chimera sequences, 
+        
+        ```{r, write fasta}
+        saveRDS ( seq_all_table, paste0 (  date_fold ,"/",metabarcoding," OTU sequence.rds")) #save sequence OTU in output folder
+        write.table ( x2, paste (Uchime_denovo_file,metabarcoding,"otu_sequence.fasta",sep = "" ),  quote = F,sep = "\n",row.names= F,col.names=F ) #save sequence OTU in vsearch folder
+
+        
+```
+
+Use in console to run chimeras removed using Uchime_denovo copy paste after changer the file localisation.
+
+install procedure in terminal commande tutorial : https://github.com/torognes/vsearch
+
+wget https://github.com/torognes/vsearch/archive/v2.9.1.tar.gz
+tar xzf v2.9.1.tar.gz
+cd vsearch-2.9.1
+./autogen.sh
+./configure
+make
+make install  # as root or sudo make install
+
+
+
+## bach commande have to be execute in terminal, set the right files as
+#input :  otu_sequence.fasta
+#output chimera sequence :  chimera.out.fasta
+#output none.chimera sequence :  non.chimera.out.fasta
+#output border.chimera sequence :  border.fasta
+#mindiffs = 2 (defaut)
+cd vsearch-2.8.1/vsearch-2.8.1-macos-x86_64/bin/  # need to set the correct file where vsearch-2.8.1 is install
+
+#exemple 16Sotu_sequence.fasta or ITSotu_sequence.fasta
+
+cd vsearch-2.8.1/vsearch-2.8.1-macos-x86_64/bin/
+  ./vsearch --uchime_denovo 16Sotu_sequence.fasta --chimeras chimera.out.fasta --nonchimeras non.chimera.out.fasta --borderline border.fasta --mindiffs 2 
+
+```{r }
+ setwd(Dir_path )
+""
+system("script/bash.my_script16SlaboPC.sh" ) 
+  
+
+```
+  
+  
+```{r}
+          setwd(Dir_path ) #set directory
+          seqtable = seq_all_table# readRDS(paste(date_fold,metabarcoding,"OTU sequence.txt"), sep = "\t")  #read none chimera filtrated OTU
+          Filtrated_sequence= data.frame( readDNAStringSet(paste ( Uchime_denovo_file, "non.chimera.out.fasta",sep = ""))) #read chimera filtrated OTU
+          ###remove chimera in dereplicated files seqtab
+          colnames(Filtrated_sequence) = "sequence"
+          seqtab.nochim  = seqtable[, Filtrated_sequence$sequence]
+          ##################Optional chimera removed by dada2 function. Not used here
+          #seqtable <-removeBimeraDenovo(seqtable, method="consensus", multithread=TRUE, minFoldParentOverAbundance =2, verbose=TRUE,allowOneOff=T)
+          ################
+          saveRDS(seqtab.nochim   , paste (  date_fold  , "/seqtab_nochim.rds", sep = "")) # save dereplicatd filtrated file
+          
+
+
+```
+
+Sup up table
+
+```{r, sumup}
+          setwd(Dir_path ) #set directory
+          ###################
+          dff_all_n=dff_all[-(which(sapply(dff_all,is.null),arr.ind=TRUE))] #call filtration sequences in dereplication (forward)
+          dfr_all_n=dfr_all[-(which(sapply(dfr_all,is.null),arr.ind=TRUE))] #call filtration sequences in dereplication (forward)
+          
+          #####sum up of all filtration step (trim / quality, dereplication, merge ,chimera)
+          
+          getN <- function(x) sum(getUniques(x))
+          track <- cbind(out, sapply(dff_all_n, getN), sapply(dfr_all_n, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+          #track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+          # If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+          colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+          rownames(track) <- sample.names #set sample name
+          write.table (track ,paste(  date_fold , "/Sum up table filtration.txt",sep = ""),sep = "\t", quote =F, row.names =T) #save sum up table
+```
+OTU sequence alligment to the reference
+
+```{r, taxonomic attribution}
+          ##########
+          setwd(Dir_path )#set directory
+          
+seqtab.nochim = readRDS( paste (  date_fold , "/seqtab_nochim.rds", sep = ""),refhook = NULL)
+              
+seq.taxo = seqtab.nochim ### intermediate step for debugging, dont change
+          ##taxonomic determination
+          taxa <- assignTaxonomy(colnames(seq.taxo), taxonomy_database , multithread=TRUE, verbose = T)
+          saveRDS ( taxa ,paste(  date_fold , "/taxa_association.rds",sep = ""))
+
+```
+
+The DADA2 sequence inference method is reference-free, so we must construct the phylogenetic tree relating the inferred sequence variants de novo.
+##### DECIPHER R package (Wright 2015). = multiple-alignment 
+
+
+The phangorn R package is then used to construct a phylogenetic tree. Here we first construct a neighbor-joining tree, and then fit a GTR+G+I (Generalized time-reversible with Gamma rate variation) maximum likelihood tree using the neighbor-joining tree as a starting point.
+
+```{r, tree generation}
+            #tree build on sequence,
+            setwd(Dir_path ) #set directory
+            seqtabNoC = as.matrix(seqtab.nochim)
+            seqs <- getSequences(seqtabNoC)
+            names(seqs) <- seqs # This propagates to the tip labels of the tree
+            alignment <- AlignSeqs(DNAStringSet(seqs), anchor=NA,verbose=FALSE) 
+            phangAlign <- phyDat(as(alignment, "matrix"), type="DNA")
+            dm <- dist.ml(phangAlign)
+            treeNJ <- NJ(dm) # Note, tip order != sequence order
+            fit = pml(treeNJ, data=phangAlign)
+            #fitGTR <- update(fit, k=4, inv=0.2)  ### default value
+            #### step take time
+            #fitGTR <- optim.pml(fitGTR, model="GTR", optInv=TRUE, optGamma=TRUE, 
+                           #     rearrangement = "stochastic", control = pml.control(trace = 0))
+            detach("package:phangorn", unload=TRUE)
+            ### backup pml
+            saveRDS ( fit ,paste(  date_fold , "/tree.pml",sep = ""))
+
+```
+
+all files are ready to be incorporated to a phyloseq format. This format will be used for the next script. 
+
+```{r,phyloseq }
+              setwd(Dir_path ) #set directory
+              #Call backup
+              test  = readRDS( paste (  date_fold , "/tree.pml", sep = ""),refhook = NULL)
+              seqtab.nochim = readRDS( paste (  date_fold , "/seqtab_nochim.rds", sep = ""),refhook = NULL)
+              seqtabNoC = seqtab.nochim 
+              taxa = readRDS( paste (  date_fold , "/taxa_association.rds", sep = ""),refhook = NULL)
+              
+              ## call data sample description
+              sample.names1 = sample.description 
+              sample.names1 =sample.names1[,]
+              rownames(sample.names1) = sample.names1$sample_ID_seq
+              
+              ###association description and tree data
+              ps <- phyloseq(otu_table(seqtabNoC, taxa_are_rows=FALSE), 
+                             sample_data(sample.names1),tax_table(taxa))#, phy_tree(test$tree))
+              ps <- prune_samples(sample_names(ps) != "NTC", ps) # Remove mock sample
+              
+              ###remove unespected data
+              ps <- subset_taxa(ps, !is.na(Phylum) & !Phylum %in% c("", "uncharacterized"))
+              saveRDS(ps ,paste(  date_fold ,"/", metabarcoding,  "phyloseq_file.rds",sep = ""))  ## save pyloseq file
