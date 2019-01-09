@@ -1,0 +1,102 @@
+---
+title: "plate formation"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, plaque_script}
+# requiere library(data.table) 
+# install.packages("data.table")
+library("data.table")
+library("tidyr")
+
+
+#### Variable to set by YOU
+          Border_set = 0 # set 1 if border is not used for experimentation (i.e water is used to avoid border effect)
+          startpoint = "A4" # 1st sample position #### NOT include #### Blank 
+          Strain = c( "WT", "X1", "X2") # set strain names
+          Condition= c ( "Y1", "Y2","Y3") # set condition names
+          replicate = 3  # number of replicate
+          Col = 12  # number of column
+          Row = 8 # number of row
+          blanc_position = c("A1","A2","A3") #set blanc in condition order i.e Y1 ,Y2,Y3..
+          empty_position =  c ("")
+######if Strain with Condition e.i ( WT x Y1 x 3 , WT x Y2 x 3 ... ) set 1
+######if Condition with Strain e.i ( Y1 x WT x 3 , Y1 x X1 x 3 ... ) set 2
+Setup_position = 1 
+
+
+```
+
+```{r main_script_no_need_modification,}
+
+#### blanc position by condition list = condition, well position in plate)
+ if (Setup_position ==  2) {   Blanc_plate_name = paste(Condition, "blank",sep = "_")}else{
+   Blanc_plate_name = paste("blank",Condition, sep = "_")
+ }
+
+
+Blanc_plate= list(condition=  Blanc_plate_name,position = blanc_position )   
+#### position blanc
+Blanc_plate_coordinate = data.frame(condition = Blanc_plate_name, 
+                                    row = substr( Blanc_plate$position,1,1), 
+                                    col = paste(substr( Blanc_plate$position,2,3),sep = "."))
+
+if (Setup_position == 1){
+ Compile_name = rep (CJ(Strain, Condition,  sorted = FALSE)[, paste(V1, V2, sep ="_")],each = 3)
+}else{                     
+  Compile_name =  rep (CJ( Condition,Strain,  sorted = FALSE)[, paste(V1, V2, sep ="_")],each = 3)
+  } 
+ 
+plate = data.frame(row =  rep (LETTERS[1:Row], each = Col), col = 1:Col, sample = "" )
+plate$sample = as.character( plate$sample)
+#### add border if need
+if (Border_set ==1) { 
+  plate$sample[plate$row == "A"] = "x"
+  plate$sample[plate$row == "H"] = "x"
+  plate$sample[plate$col == 1] = "x"
+  plate$sample[plate$col == 12] = "x"
+  }
+#### positioning blanc in plate
+
+plate$sample[plate$row %in%  Blanc_plate_coordinate$row & 
+      plate$col %in% Blanc_plate_coordinate$col] = as.character(Blanc_plate_coordinate$condition)
+
+#### positionnig sample
+i = 1
+
+for (g in 1: nrow(plate)){
+  
+  if(plate$sample[g] == ""){plate$sample[g] = Compile_name[i]
+                            i = i+1}else{}
+  
+}
+
+## generate plate format
+table = data.frame(matrix(plate$sample,ncol = 12,nrow = 8,byrow = T, dimnames = list( LETTERS[1:8],paste ("c",1:12))  ))
+
+if( Setup_position == 1 ) { plate = separate (plate, col =  sample, sep = "_", into = c ("Strain","Condition"))
+}else{plate = separate (plate, col =  sample, sep = "_", into = c ("Condition", "Strain") )
+}
+
+
+#table writing
+write.table(plate, "Insert name.txt", quote = F, sep = "\t" , col.names = T, row.names= F) 
+
+#print table
+
+write.table(table, "Insert name.txt", quote = F, sep = "\t" , col.names = T, row.names= F) 
+
+  
+```
+
+
+
+
+
+
