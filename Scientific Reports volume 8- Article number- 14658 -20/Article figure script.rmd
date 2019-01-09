@@ -1,0 +1,2159 @@
+---
+title: "22,10,17 sort rep Sap projet new allignement"
+---
+output:
+  html_document:
+    css: style.css
+---
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+generate_label_df <- function(TUKEY, variable){
+
+  # Extract labels and factor levels from Tukey post-hoc 
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
+}
+
+
+library(Steel.Dwass.test)
+
+
+```
+
+
+
+```{r}
+dyn.load('/Library/Java/JavaVirtualMachines/jdk-9.0.1.jdk/Contents/Home/lib/server/libjvm.dylib')
+library(ggrepel)
+   library(org.Sc.sgd.db)
+    library(topGO)
+  library(FGNet)
+  
+library(vegan)
+library(rafalib)
+library(FactoMineR)
+library(factoextra)
+  
+library(RAM)
+
+library (xlsx)
+library (rJava)
+library(cowplot)
+library(squash)
+library(reshape)
+library(grid)
+library(gridExtra)
+library(corrplot)
+library(ggplot2)
+library(zoo)
+library(NbClust)
+library(ggdendro)
+library(plotly)
+library(GGally)
+library ( stringr)
+#library(preprocessCore)
+#library(limma)
+library(dplyr)
+setwd("~/Dropbox/Projet SAP ( collection KO)/Nouvelles alignements/final")
+ library(multcomp)
+  library(multcompView)
+ 
+
+```
+
+
+```{r}
+## manual function 
+
+panel.cor <- function(x, y, digits = 2, cex.cor, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  # correlation coefficient
+  r <- cor(x, y)
+  txt <- format(c(r, 0.123456789), digits = digits)[1]
+  txt <- paste("r= ", txt, sep = "")
+  text(0.5, 0.6, txt)
+  
+  # p-value calculation
+  p <- cor.test(x, y)$p.value
+  txt2 <- format(c(p, 0.123456789), digits = digits)[1]
+  txt2 <- paste("p= ", txt2, sep = "")
+  if(p<0.01) txt2 <- paste("p= ", "<0.01", sep = "")
+  text(0.5, 0.4, txt2)
+}
+
+
+compare_fitness1 = function(w,x,y,z,t){
+  a = w*x
+  b = y*z
+  c = 1/t
+  d =  a / b
+  d^c
+}
+propor_maker = function( x,y) {  as.numeric(x) / y    }
+
+
+
+
+sstath <- function (x) {  data.frame(
+Min = apply(x, 2, min), # minimum
+Med = apply(x, 2, median), # median
+Mean =  signif ( apply(x, 2, mean) , 3), # mean
+SD = apply(x, 2, sd), # Standard deviation
+Max = apply(x, 2, max), # Maximum
+somme = apply(x, 2, sum)
+
+)
+}
+
+
+sstatv <- function (x) {  data.frame(
+Min = apply(x, 1, min), # minimum
+Med = apply(x, 1, median), # median
+Mean = signif (apply(x, 1, mean) ), # mean
+SD = apply(x, 1, sd), # Standard deviation
+Max = apply(x, 1, max), # Maximum
+somme = apply(x, 1, sum)
+
+
+)
+}
+
+multiplot <- function(..., plotlist=NULL, cols) {
+    require(grid)
+
+    # Make a list from the ... arguments and plotlist
+    plots <- c(list(...), plotlist)
+
+    numPlots = length(plots)
+
+    # Make the panel
+    plotCols = cols                          # Number of columns of plots
+    plotRows = ceiling(numPlots/plotCols) # Number of rows needed, calculated from # of cols
+
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(plotRows, plotCols)))
+    vplayout <- function(x, y)
+        viewport(layout.pos.row = x, layout.pos.col = y)
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+        curRow = ceiling(i/plotCols)
+        curCol = (i-1) %% plotCols + 1
+        print(plots[[i]], vp = vplayout(curRow, curCol ))
+    }
+
+}
+
+
+
+
+order_axis<-function(data, axis, column)
+{
+  # for interactivity with ggplot2
+  arguments <- as.list(match.call())
+  col <- eval(arguments$column, data)
+  ax <- eval(arguments$axis, data)
+
+  # evaluated factors
+  a<-reorder(with(data, ax), 
+             with(data, col))
+
+  #new_data
+  df<-cbind.data.frame(data)
+  # define new var
+  within(df, 
+         do.call("<-",list(paste0(as.character(arguments$axis),"_o"), a)))
+}
+
+
+
+```
+
+
+```{r}
+
+
+#Null variable
+
+
+```
+
+```{r}
+
+
+
+library(xlsx)
+library(ggplot2)
+library(reshape)
+library(Rmisc) 
+
+library ( stringr)
+
+
+setwd("~/Dropbox/Projet SAP ( collection KO)/Nouvelles alignements/final")
+
+
+#read.table (DF_fitness, "29.07.17 Donnees fitness avec nouvelle alignement.txt",quote=F,row.names=F,sep="\t" )
+
+correspondance_SC = read.table ( "05.09.17 correspondance SC.txt" , header = F, sep = "\t")
+
+
+DF_fitness = read.table("29.07.17 Donnees fitness avec nouvelle alignement.txt",header = T )
+DF_fitness_05 = read.table("29.07.17 Donnees fitness avec nouvelle alignement _05.txt",header = T )
+
+
+#colnames(DF_fitness_05)[2] = "S_name"
+
+# DF_Fitness_all_05 = merge ( y =DF_fitness_05, by.y ="S_name",x = correspondance_SC,"V1",all.y=T ) 
+ 
+
+
+
+DF_Fitness_all_S = DF_fitness
+
+DF_Fitness_all_S_05 = DF_fitness_05 
+
+
+sucrose = c( "Sucrose04", "Sucrose10","Sucrose12", "Sucrose18",     "Sucrose08", "Sucrose15", "Sucrose06" ,"Sucrose16", "Sucrose01", "Sucrose11","Sucrose13", "Sucrose19","Sucrose09","Sucrose14", "Sucrose07" ,"Sucrose17" )
+
+ DF_fitness$S_name = rownames(DF_fitness)
+
+  DF_Fitness_sucrose = DF_fitness[, c ("S_name",sucrose)]
+M_DF_Fitness_sucrose = melt ( DF_Fitness_sucrose)
+
+
+#print ( ggplot(order_axis(M_DF_Fitness_sucrose, S_name, value), 
+     #  aes(x = S_name_o, y = value, color = variable)) + geom_point() )
+
+
+ DF_fitness_05$S_name = rownames(DF_fitness_05)
+
+  DF_Fitness_sucrose = DF_fitness_05[, c ("S_name",sucrose)]
+M_DF_Fitness_sucrose = melt ( DF_Fitness_sucrose)
+
+
+
+
+```
+
+   
+     
+```{r, fig.width= 12 ,fig.height= 12 }
+# analyse des percentile et fitness
+
+VR5_paired_1 = c ( "D2","AJ2","F4","HV4" )
+STD_paired_1 =  c ( "D3","AJ1","F2","HV1" )
+
+VR5 =  (c ( "D2","AJ2","F4","HV4","HV5","AJ3" , "P2.4_28"))
+STD =  c  ( "D3","AJ1","F","F2","HV1", "YB1"  ) 
+
+C_vr5 = list(VR5_paired_1, VR5)
+C_std = list(STD_paired_1 ,STD)
+
+De = c(T,F)
+
+
+ for (xt in 2:2){ 
+
+VR5_paired = unlist(C_vr5[xt])
+STD_paired = unlist(C_std[xt])
+
+PPaired = De[xt]
+
+DF_Fit_S_Diff = data.frame (V1 =DF_Fitness_all_S$V1,V2 =DF_Fitness_all_S$V2, pvalue = 0, difference = 0 ) #### diff VR5 std
+
+DF_Fit_S_Diff_05 = data.frame (V1 =DF_Fitness_all_S_05$V1,V2 =DF_Fitness_all_S_05$V2, pvalue = 0, difference = 0 ) #### diff VR5 std
+
+
+for (fr in 1 : nrow( DF_Fitness_all_S)){
+              
+              V_std = as.numeric ( DF_Fitness_all_S[fr, STD_paired])
+              V_VR5= as.numeric ( DF_Fitness_all_S[fr, VR5_paired])
+              
+              x = t.test(V_std, V_VR5,paired = PPaired,  var.equal = F)
+              
+              DF_Fit_S_Diff$pvalue[fr]=  as.numeric(x[3][1])
+
+               if(as.numeric(x[1][1]) <= 1){ DF_Fit_S_Diff$difference[fr] = 1}else { DF_Fit_S_Diff$difference[fr]= -1}
+      
+}
+
+for (fr in 1 : nrow( DF_Fitness_all_S_05)){
+              
+              V_std = as.numeric ( DF_Fitness_all_S_05[fr, STD_paired])
+              V_VR5= as.numeric ( DF_Fitness_all_S_05[fr, VR5_paired])
+              
+              x = t.test(V_std, V_VR5,paired = PPaired,  var.equal = F)
+              
+              DF_Fit_S_Diff_05$pvalue[fr]=  as.numeric(x[3][1])
+
+               if(as.numeric(x[1][1]) <= 1){ DF_Fit_S_Diff_05$difference[fr] = 1}else { DF_Fit_S_Diff_05$difference[fr]= -1}
+      
+}
+      
+
+  DF_Fit_S_Diff_05$DFR = p.adjust(as.numeric(  DF_Fit_S_Diff_05$pvalue),method = "fdr")
+  ranked_pval_signi_fitness_VR5_STD_05 =   DF_Fit_S_Diff_05[  DF_Fit_S_Diff_05$pvalue<0.05,]
+   
+  
+  DF_Fit_S_Diff$DFR = p.adjust(as.numeric(  DF_Fit_S_Diff$pvalue),method = "fdr")
+  ranked_pval_signi_fitness_VR5_STD =   DF_Fit_S_Diff[  DF_Fit_S_Diff$pvalue<0.05,]
+   
+
+write.table (DF_Fit_S_Diff, paste ("fitness", xt,".txt"), quote =F, sep = "\t",dec = "," )
+  
+write.table (DF_Fit_S_Diff_05, paste ("fitness_05", xt,".txt"), quote =F, sep = "\t",dec = "," )
+  
+
+}
+
+
+
+
+ad = read.table ( "fitness_05 1 .txt",dec = ",")
+ad2 = read.table ( "fitness_05 2 .txt",dec = ",")
+
+
+
+ad2$pvalue= as.character( ad2$pvalue)
+ad2$pvalue= as.numeric( ad2$pvalue)
+
+ad2_p = ad2[ad2$pvalue <= 0.05,]
+
+ad2_p = ad2[ad2$DFR <= 0.05,]
+
+
+
+
+V_std =  DF_Fitness_all_S_05[,c( "V1","V2",STD_paired)]
+V_VR5 =  DF_Fitness_all_S_05[,c( "V1","V2",VR5_paired)]
+
+V_std$std_mean = apply (V_std[3:6],1,mean )
+V_VR5$VR5_mean = apply (V_VR5[3:7],1,mean )
+
+
+#F_v_F = merge ( x =(V_std), y = (V_VR5), by= "V1" ,all.y =T) 
+
+F_v_F = merge ( x =na.omit(V_std), y = na.omit(V_VR5), by= "V1" ,all.x =T) 
+
+
+F_v_F = F_v_F[,c ( "V2.x","V1","std_mean", "VR5_mean" )]
+
+F_v_F$delta_fitness = F_v_F$VR5_mean - F_v_F$std_mean
+#F_v_F$delta_fitness2 = log2(F_v_F$delta_fitness)
+
+F_v_F= merge( na.omit(F_v_F), na.omit( ad2), by.x = "V1", by.y = "V1",all.x=T)
+
+thg = 0.05
+#F_v_F$delta_fitness
+
+F_v_F$pvalue2 = -log10(F_v_F$pvalue)
+
+
+write.table (F_v_F, paste ("26.01,18 delta fitness qualite.txt"), quote =F, sep = "\t",dec = "," )
+
+#results = mutate(F_v_F, sig=ifelse(F_v_F$delta_fitness < -thg & F_v_F$pvalue2> 1 |F_v_F$delta_fitness > thg & F_v_F$pvalue2> 1 | F_v_F$pvalue2> 3, "candidates strains", "Not Sig"))
+
+
+
+#results = mutate(F_v_F, sig=ifelse(F_v_F$DFR <=  thg, "candidates strains", "Not Sig"))
+
+results = mutate(F_v_F, sig=ifelse(abs(F_v_F$delta_fitness) > 0.020 & F_v_F$DFR> thg, "candidates strains", "Not Sig"))
+
+
+
+dodge <- position_dodge(width = 0.1)
+
+
+
+
+
+setwd("~/Dropbox/Projet SAP ( collection KO)/Nouvelles alignements/final")
+
+qualite = read.table( "qualite sbb.txt", sep = "\t",dec = ",")
+
+rownames(DF_Fitness_all_S_05) = DF_Fitness_all_S_05$V1
+
+t_DF_fitness = data.frame(t(DF_Fitness_all_S_05))
+#colnames(t_DF_fitness) = t_DF_fitness[,1]
+t_DF_fitness$sample = rownames (t_DF_fitness  ) 
+
+#rownames (t_DF_fitness  ) = t_DF_fitness[,1]
+
+#colnames ( t_DF_fitness) = t_DF_fitness[1,]
+
+
+qualite_t_df = merge (x  = t_DF_fitness , by.x ="sample", y = qualite , by.y =  "V1" )  
+
+
+
+
+qualite_t_df_SBB = qualite_t_df
+#rownames(qualite_t_df_SBB)  = qualite_t_df_SBB$V2
+
+
+qualite_df_SBB = data.frame( t(qualite_t_df_SBB ))
+
+colnames(qualite_df_SBB  ) = as.character ( unlist (qualite_df_SBB[1,]))
+
+qualite_df_SBB = qualite_df_SBB[-1,]
+
+col_select = c(1:24,27)
+
+SBB_v = unlist(qualite_df_SBB["V2",col_select])
+
+
+SBB_v2= as.character((SBB_v))
+
+SBB_v3 = as.numeric((SBB_v2))
+
+
+Person_pval = data.frame ( V1 = qualite_df_SBB$V1[1:(nrow(qualite_df_SBB)-4)], V2 = qualite_df_SBB$V2[1:(nrow(qualite_df_SBB)-4)] , Pval = 1 , cor = 5 ,verif = "")
+
+
+Person_pval$verif =as.character( Person_pval$verif)
+for ( ht in 1 : (nrow ( qualite_df_SBB )-4)) {
+  
+  pt = unlist ( qualite_df_SBB[ht, col_select])
+  
+  pt2 = as.character (pt)
+  pt3 = as.numeric (pt2)
+  
+  res<-cor.test(SBB_v3,pt3, method="spearman")
+  
+  Person_pval$Pval[ht] = as.numeric (res [3][1])
+  Person_pval$cor[ht] = as.numeric (res [4][1])
+  
+  
+  
+  Person_pval$verif[ht] = as.character(qualite_df_SBB[ht,"V1"])
+  
+}
+
+
+
+write.table (  Person_pval,"23,1,18 correlation table spearman sbb.txt",row.names= F, quote=F,sep = "\t")
+
+
+Person_pval$FDR = p.adjust(Person_pval$Pval,"fdr")
+
+
+Person_pval_select = Person_pval[Person_pval$Pval <= 0.05,]
+
+Person_pval_select = Person_pval[Person_pval$FDR <= 0.05,]
+
+
+Person_pval$log10 =  -log10(Person_pval$Pval)
+
+thg= 0.05
+
+
+  dgf = F_v_F[abs(F_v_F$delta_fitness) > 0.02 & F_v_F$DFR< thg , ]
+
+
+Person_pval_select = Person_pval[Person_pval$FDR <= 0.01,]
+
+Person_pval_select_2 = Person_pval_select 
+
+
+#Person_pval_select_2 = 
+
+
+
+L_pers = as.character (Person_pval_select_2$V2)
+L_Fit = as.character (dgf$V2.x)
+
+
+
+
+group.venn(list(SBB=L_pers, Fitness=L_Fit),cex = 3, label=F, 
+    fill = c("orange", "blue"),
+    cat.pos = c(0, 0),
+    lab.cex=20)
+
+
+
+group.venn(list(SBB=L_pers, Fitness=L_Fit), label=TRUE, 
+    fill = c("orange", "blue"),
+    cat.pos = c(0, 0),
+    lab.cex=0.5)
+
+
+
+
+y3 = L_pers
+y4=L_Fit 
+
+geneLabels1 <- unlist(as.list(org.Sc.sgdGENENAME))
+genesYeast <- sort(geneLabels1[which(geneLabels1 %in%   y4)])
+
+#genesYeast= unique(factor (genesYeast))
+
+setwd("~/Dropbox/Projet SAP ( collection KO)/Nouvelles alignements/final/GO all")
+library(Organism.dplyr)
+
+
+#feaResults_topGO <- fea_topGO(
+ # geneList=genesYeast,geneLabels=NULL, geneIdType="GENENAME", organism="Sc", pValThr= 1, jobName = "S_fitness" , #annotations = c("GO_BP", "GO_MF", "GO_CC") ) 
+
+
+
+Person_pval_select_2_S_0= Person_pval_select_2[Person_pval_select_2$cor <0,]
+Person_pval_select_2_in_0= na.omit( Person_pval_select_2[Person_pval_select_2$cor >0,])
+
+
+
+L_pers_1 = as.character (Person_pval_select_2_S_0$V2)
+
+L_pers_2 = as.character (Person_pval_select_2_in_0$V2)
+
+write.table (L_pers_1, "30.10.17 liste gene Sperman crrelation sup 0 pval.txt",quote=F, row.names=F,col.names=F )
+
+
+
+write.table (L_pers_2, "30.10.17 liste gene Sperman crrelation inf 0.txt",quote=F, row.names=F,col.names=F )
+
+
+
+
+
+
+FIFI_S_1 = dgf [dgf$difference == 1,]
+FIFI_in_1 = dgf [dgf$difference == -1,]
+L_Fit_S_1 = as.character (FIFI_S_1$V2.x)
+L_Fit_in_1 = as.character (FIFI_in_1$V2.x)
+
+
+
+write.table (L_Fit_in_1 , "31.10.17 liste gene Fitness inf 0 pval 0.05.txt",quote=F, row.names=F,col.names=F )
+
+
+write.table (L_Fit_S_1 , "31.10.17 liste gene Fitness sup 0 pval 0.05.txt",quote=F, row.names=F,col.names=F )
+
+
+
+
+
+
+
+
+
+
+
+Fusion_stats = merge ( F_v_F, Person_pval,by.x = "V1", by.y = "V1")
+
+Fusion_stats$stat_cor =  "no signi"
+Fusion_stats$stat_cor =  as.character(Fusion_stats$stat_cor )
+
+
+
+
+fdr_cor = 0.01
+
+
+for (tt in 1 :nrow (Fusion_stats )) {
+
+if (Fusion_stats$FDR[tt] < fdr_cor &   Fusion_stats$cor[tt]<0 ) {Fusion_stats$stat_cor[tt] = "correlation negative" }
+if (Fusion_stats$FDR[tt] < fdr_cor &   Fusion_stats$cor[tt]>0 ) {Fusion_stats$stat_cor[tt] = "correlation positive"}
+
+}  
+  
+#Fusion_stats = merge ( F_v_F, Person_pval,by.x = "V1.x", by.y = "V1")
+
+Fusion_stats$stat_fit = 0
+
+Fusion_stats$stat_fit =  as.numeric (Fusion_stats$stat_fit)
+
+fdr_fit = 0.05
+
+fit_val = 0.02
+
+
+for (tt in 1 :nrow (Fusion_stats )) {
+
+if (Fusion_stats$DFR[tt] < fdr_fit &   Fusion_stats$delta_fitness[tt]< -fit_val) {Fusion_stats$stat_fit[tt] = -0.1 }
+if (Fusion_stats$DFR[tt] < fdr_fit &   Fusion_stats$delta_fitness[tt]>fit_val  ) {Fusion_stats$stat_fit[tt] = 0.1 }
+
+}  
+ 
+Fusion_stats$DFRlog10 = -log10 ( Fusion_stats$DFR)
+#Fusion_stats$color_c = interaction(stat_cor ,stat_fit,sep = " & ")
+ 
+
+# lower and upper limits
+
+M_S =max (Fusion_stats$cor )
+Min_S = min (Fusion_stats$cor )
+
+
+tr = abs(M_S) + abs ( Min_S)
+tr = 1/ nrow( Fusion_stats )
+
+a = data.frame (Fusion_stats$cor,Fusion_stats$FDR  )
+a$p = tr
+
+a = a[order ( a$Fusion_stats.cor),]
+
+a$pp = cumsum(a$p)
+
+a_s = Person_pval[Person_pval$FDR <= 0.01,]
+
+a_s_S = a_s[a_s$cor > 0,]
+a_s_S_V = min (a_s_S$cor)
+a_s_i = a_s[a_s$cor < 0,]
+a_s_i_V = max (a_s_i$cor)
+
+xt = rescale(c(-1,a_s_i_V  ,a_s_S_V ,1) )
+
+
+
+
+dodge <- position_dodge(width = 0.1)
+          
+          tt = ggplot ( Fusion_stats, aes (x = delta_fitness, y = DFRlog10,label = V2.x,  size = ( (abs(stat_fit)))  ) )+ geom_point(aes(color=cor )) +   geom_hline( yintercept =  -log10(fdr_fit), linetype= "dashed") + geom_vline( xintercept =  -0.02, linetype= "dashed") + geom_vline( xintercept =  0.02, linetype= "dashed") + 
+          
+            
+          scale_colour_gradientn(colours = c("red", "grey50" ,"grey50","blue"),
+                                   #values=c(0, p1 ,p2 ,1)  ) +
+            breaks=c(-1, round (a_s_i_V,1)  ,round(a_s_S_V,1) ,1) , name = expression(paste("    Correlation \nYeast fitness S" [bb])))  +
+          
+             #geom_point(data = Fusion_stats[ Fusion_stats$FDR > fdr_cor & Fusion_stats$stat_fit != 0 | Fusion_stats$FDR > fdr_cor ,],color ="black", fill = "#FFFFFF" , shape =21,alpha = 0.3) +
+              
+             geom_point(data = Fusion_stats[ Fusion_stats$FDR > fdr_cor & Fusion_stats$stat_fit == 0 ,],color ="black", fill = "#FFFFFF" , shape =21) + scale_size_continuous(range = c(1.5,3),breaks = 2)  + xlab(expression("Median fitness difference "["5 - Std"])) + ylab (" -Log"[10]~"P-value") + geom_label_repel( data =  Fusion_stats[ Fusion_stats$V2.x %in% c("OPI3","MET5", "MET14", "SKP2","MET16" ),], nudge_y = +0.15, nudge_x = 0.01, size = 5, angle = 45, family = "Helvetica") +
+              theme(plot.title=element_text(family="Helvetica",size=26), axis.title.x = element_text (size = 30 , family="Helvetica") ,axis.title.y = element_text (size = 30, family="Helvetica"),axis.text  = element_text (size = 20, family="Helvetica"), legend.text = element_text (size = 20), legend.title = element_text ( face="bold", size=30), legend.key.size = unit(0.8, "cm"), legend.position = "right", legend.title.align = 0.5)
+          
+          
+          tt
+          
+g <- ggplotGrob(tt)
+grobs <- g$grobs
+legend_index <- which(sapply(grobs, function(x) x$name) == "guide-box")
+legend <- grobs[[legend_index]]
+
+# extract guides table
+guides_index <- which(sapply(legend$grobs, function(x) x$name) == "layout")
+guides <- legend$grobs[[guides_index]]
+
+# add extra column for spacing
+# guides$width[5] is the extra spacing from the end of the legend text
+# to the end of the legend title. If we instead distribute it 50:50 on
+# both sides, we get a centered legend
+guides <- gtable_add_cols(guides, 0.5*guides$width[5], 1)
+guides$widths[6] <- guides$widths[2]
+title_index <- guides$layout$name == "title"
+guides$layout$l[title_index] <- 2
+
+# reconstruct legend and write back
+legend$grobs[[guides_index]] <- guides
+g$grobs[[legend_index]] <- legend
+
+grid.newpage()
+grid.draw(g)
+z = grid.draw(g)
+          ####
+          library(ggplot2)
+          library(gtable)
+          library(grid)
+          
+          
+          g <- ggplotGrob(tt)
+          grobs <- g$grobs
+          legend_index <- which(sapply(grobs, function(x) x$name) == "guide-box")
+          legend <- grobs[[legend_index]]
+          
+          # extract guides table
+          guides_index <- which(sapply(legend$grobs, function(x) x$name) == "layout")
+          guides <- legend$grobs[[guides_index]]
+          
+          # add extra column for spacing
+          # guides$width[5] is the extra spacing from the end of the legend text
+          # to the end of the legend title. If we instead distribute it 50:50 on
+          # both sides, we get a centered legend
+          guides <- gtable_add_cols(guides, 0.5*guides$width[5], 1)
+          guides$widths[6] <- guides$widths[2]
+          title_index <- guides$layout$name == "title"
+          guides$layout$l[title_index] <- 2
+          
+          # reconstruct legend and write back
+          legend$grobs[[guides_index]] <- guides
+          g$grobs[[legend_index]] <- legend
+          
+          grid.newpage()
+          grid.draw(g)
+
+
+
+
+#scale_colour_gradientn(colours = c("red","grey50","grey50","grey50","blue"),
+    #                     values=c(1, .6, 0, -(.6), -(1)  ))
+
+
+#scale_colour_gradient2(low = "blue", mid = "grey80",
+#  high = "red", midpoint = 0, space = "Lab",
+#  na.value = "grey50", guide = "colourbar" , limits = c(lo, hi)) 
+
+#+scale_color_manual(values=c("#72B2C6", "#529151", "#000000") )
+
+#+ geom_point(data=F_v_F[F_v_F$DFR < thg & abs(F_v_F$delta_fitness) > 0.02 ,], color = "blue" )    "#8D3B3E"
+
+
+#"#529151","#AE76B0" ,"#FF3305","#000000", "#8D3B3E" ))
+
+#data=F_v_F[F_v_F$DFR < thg & abs(F_v_F$delta_fitness) > 0.02 ,], color = "blue" 
+
+
+
+
+
+
+#a = as.character (F_v_F$V1)
+
+#a2 = as.character (Person_pval$V1 )
+
+
+#ac =  a[ !(a %in% a2)]
+
+
+#au= unique (a)
+
+
+#a[duplicated(a, incomparables = FALSE)]
+
+
+#fdr_cor = 0.01
+
+
+Liste_fitness = Fusion_stats[Fusion_stats$DFR<fdr_fit, ]
+Liste_fitness = Liste_fitness [abs(Liste_fitness$delta_fitness) >=fit_val, ]
+
+Liste_fitness_S = Liste_fitness[Liste_fitness $difference ==1,]
+Liste_fitness_SS= as.character (Liste_fitness_S$V2.x)
+
+Liste_fitness_I = Liste_fitness[Liste_fitness $difference ==-1,]
+Liste_fitness_II= as.character (Liste_fitness_I$V2.x)
+
+
+Liste_SBB = Fusion_stats[Fusion_stats$FDR<fdr_cor, ]
+
+Liste_SBB_I = Liste_SBB[Liste_SBB$cor<0, ]
+Liste_SBB_I_N = as.character(Liste_SBB_I$V2.x)
+
+Liste_SBB_S = Liste_SBB[Liste_SBB$cor>0, ]
+Liste_SBB_S_N = as.character(Liste_SBB_S$V2.x)
+
+
+write.table ( Liste_SBB_S_N , paste ("31.10.17 P",fdr_cor, "correlation positive SBB.txt"),col.names=F, quote= F, row.names=F, sep ="\t"  )
+write.table ( Liste_SBB_I_N , paste ("31.10.17 P",fdr_cor, "correlation negative SBB.txt"),col.names=F, quote= F, row.names=F, sep ="\t"  )
+
+```
+
+```{r}
+
+
+
+
+
+
+setwd("~/Dropbox/Projet SAP ( collection KO)/Nouvelles alignements/final")
+
+
+trans = read.table ( "transmitance.txt", header= T, dec = ",",sep = "\t",fill = T,quote = "")
+
+
+#qlt = trans[c(17,3)]
+
+
+qlt = trans[c(17,18:21)]
+colnames (qlt ) = c("Classement", "L", "a", "b", "XT")
+
+qlt$XT = as.character(qlt$XT)
+qlt$XT = sub(",", "",qlt$XT)
+qlt$XT = as.numeric(qlt$XT)
+
+qlt_na = na.omit(qlt)
+
+qlt_na = qlt_na[qlt_na$Classement != "",]
+
+qlt_na = unique(qlt_na )
+
+
+#ggplot (qlt_na, aes(x = Classement.2, y = Sbb, fill = Classement.2 ) ) + geom_boxplot() + geom_point() + ggtitle( "boxplot variable SBB") + geom_hline(yintercept = 35) +ylim( c(0,130))
+
+
+
+
+
+M_qlt_na  = melt ( qlt_na ,id.vars = "Classement" )
+
+
+
+
+
+qlt = trans[c(3,18:21)]
+
+
+colnames (qlt ) = c("SBB", "L", "a", "b", "XT")
+
+qlt$XT = as.character(qlt$XT)
+qlt$XT = sub(",", "",qlt$XT)
+qlt$XT = as.numeric(qlt$XT)
+
+qlt_na = na.omit(qlt)
+
+qlt_na = qlt_na[qlt_na$SBB != "",]
+
+qlt_na = unique(qlt_na )
+
+
+
+cor.test(qlt_na$SBB,qlt_na$L, method="spearman")
+cor.test(qlt_na$SBB,qlt_na$a, method="spearman")
+cor.test(qlt_na$SBB,qlt_na$b, method="spearman")
+cor.test(qlt_na$SBB,qlt_na$XT, method="spearman")
+
+
+M_qlt_na= melt ( qlt_na, id.vars = "SBB")
+
+ggplot (M_qlt_na, aes ( x = SBB,y= value) ) + geom_point() + xlim ( c(0,130))+ geom_smooth() + facet_wrap( ~variable , scales= "free")
+
+
+trans1= trans[trans$Type ==  "sève",]
+trans1= trans1[trans1$Classement !=  "",]
+
+
+trans1$Classement= sub ("NC5","5", trans1$Classement)
+trans1$Classement= sub ("VR5","5", trans1$Classement)
+trans1$Classement= sub ("VR1","1", trans1$Classement)
+trans1$Classement= sub ("VR4","4", trans1$Classement)
+#trans1$Classement= sub ("(Filant)","", trans1$Classement)
+trans1$Classement= sub ("CT6 R \\(Filant\\)","6", trans1$Classement)
+trans1$Classement= sub ("CT6 R \\(Filant\\)","6", trans1$Classement)
+
+
+trans1$Classement= sub ("CT5","5", trans1$Classement)
+trans1$Classement= sub ("CT4 R","4", trans1$Classement)
+trans1$Classement= sub ("OK","Std", trans1$Classement)
+
+
+trans2017 =  trans1[trans1$Classement.2 !="",]
+
+
+
+
+trans2017$Classement.3 = factor ( trans2017$Classement.2 , levels = unique (trans2017$Classement.2), labels= c (  "1", "5"  , "2" , "4" , "3",  "6"  ) )
+
+
+trans2017$Classement.3= factor(trans2017$Classement.3,levels(trans2017$Classement.3)[c(1,3,5,4,2,6)])
+
+trans2017$Classement.2= sub( "OK", "Std", trans2017$Classement.2)
+
+
+trans2018 =  trans2017[trans2017$annee !=2015,]
+
+trans2018_S =trans2018 
+trans2018_S$Classement.2 = as.factor (trans2018_S$Classement.2)
+
+ trans2018_S$Classement.4 = factor (trans2018_S$Classement.2, levels(trans2018_S$Classement.2) [c(5,1,6,2,3,4)])
+
+ dunn.test.control ( trans2018_S$Sbb, trans2018_S$Classement.4, p.adjust.method = "fdr",)
+
+
+
+trans20182 = trans2017[trans2017$Classement.2 != "",]
+#"#CC9B25", "#7E01A1" ,"#13CD4A", "red" , "#F87E7B","#181F35","#61ADA0")
+
+
+CDATA = trans20182[,c (1,2,3,17)]
+CDATA = na.omit( CDATA )
+
+#CDATA  =CDATA[CDATA$annee == "2016",]
+
+
+qlt_std_5 = c ( "5", "Std","6","4","1","V")
+
+CDATA  = CDATA [CDATA$Classement.2 %in% qlt_std_5,]
+
+CDATA  = CDATA [CDATA$annee != 2015,]
+
+
+ano = aov(Sbb ~ Classement.2 , CDATA )
+
+
+```
+
+```{r}
+
+ 
+ CDATA$Classement.2 = factor ( CDATA$Classement.2)
+library("PMCMR")
+ library("MultNonParam")
+ library("kSamples")
+anoNP = kruskal.test(Sbb ~ Classement.2 , CDATA )
+ tukey.kruskal.test(CDATA$Sbb, CDATA$Classement.2, alpha=.05)
+ 
+ 
+ library(PMCMR)
+
+   CDATA$Classement.3 = factor (CDATA$Classement.2, levels(CDATA$Classement.2) [c(5,1,6,2,3,4)])
+ 
+  dunn.test.control (CDATA$Sbb, CDATA$Classement.3, p.adjust.method = "fdr")
+
+posthoc.kruskal.dunn.test(Sbb~Classement.2,CDATA, alpha = 0.05)
+ 
+ 
+ 
+ 
+ t_CDATA = CDATA[ order ( CDATA$Classement.2),]
+ 
+ 
+  t_CDATA2 = t_CDATA[ t_CDATA$Classement.2 == c ( "1","4"),]
+ 
+  Steel.Dwass( round (t_CDATA2$Sbb,4), as.character (t_CDATA2$Classement.2))
+ 
+
+   
+  
+
+write.table ( t_CDATA , "donnee stats pour quality.txt", sep = "\t", quote = F)
+ 
+ 
+ SD_SBB_Q=  Steel.Dwass( round (t_CDATA2$Sbb,4), as.character (t_CDATA2$Classement.2))
+ 
+#  
+#  
+# summary (ano)
+# 
+#   TUKEY <- TukeyHSD(x=ano, 'Classement.2', conf.level=0.95)
+# 
+#   
+ labels<-data.frame (Letters = c ("","*","","","","*" ) , Classement.2 = as.character ( unique (CDATA$Classement.2) ))
+ 
+  colnames (labels)[2] =  "Classement.2"
+#   
+   yvalue = aggregate(Sbb ~ Classement.2 , data = CDATA, min)
+  labels_M = merge ( labels, yvalue, by= "Classement.2")
+  
+  colnames (labels_M )[1] =  "Classement.2_o"
+  
+  labels_M$Sbb =  labels_M$Sbb -1
+ 
+  #labels_M$Classement.2 =   factor(labels_M$Classement.2,levels(labels_M$Classement.2)[c(5,6,1,2,3,4)])
+ 
+  trans20182$Classement.3 = factor (trans20182$Classement.3, levels(trans20182$Classement.3)[6:1] )
+  
+  
+  fff = order_axis( trans20182, Classement.2 ,  as.numeric (Classement.3)) 
+  
+  trans20183 = trans20182[!(is.na(trans20182$Classement.2)),]
+  trans20183 = trans20183[!(is.na(trans20183$Sbb)),]
+   trans20183 = trans20183[trans20183$annee != 2015,]
+  
+
+FRT = ggplot (order_axis( trans20183, Classement.2 ,  as.numeric (Classement.3)) , aes ( x =Classement.2_o, y = Sbb, fill =Classement.2_o)  )+ 
+  geom_boxplot() + geom_point()+
+  
+  #geom_hline(yintercept = 40,  color="black", 
+          #       linetype="dashed", size=0.5)+ geom_hline(yintercept = 30,  color="black", 
+          #       linetype="dashed", size=0.5) +
+  coord_flip()+ xlab ("Associated syrup quality") + scale_fill_manual( name = "" ,values =   rev (c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" )))
+
+
+
+
+FRT + geom_text(data = labels_M, aes ( x =Classement.2_o , y = Sbb ,label = Letters),fill = "white", size = 10 , family = "Helvetica") +
+    theme(plot.title=element_text(family="Helvetica", face="bold", size=20) , legend.text=element_text(size=24) , axis.text.x = element_text(angle = 60, hjust = 1,size = 18),axis.text.y = element_text(size = 18) , axis.title.x = element_text(size = 35) , axis.title.y = element_text(size = 35)  ) + annotate( "text",label = paste ("Kruskal Wallis test: \npvalue =",  signif (anoNP$p.value,2)), y = 12, x =6, size = 7 , family = "Helvetica")+ theme(legend.position="none")+  scale_y_continuous(trans=reverselog_trans(10),breaks= c(10,25,50, 100,200, 300) ) + ylab ( expression("S"[bb]))
+
+
+
+#FRT11 = ggplot (tttt_C_na , aes ( x =Sbb, y = S.SO42. ) )+ geom_point( aes ( color =Classement.2),size = 5)+ xlab ("") + geom_smooth(se =F) + scale_color_manual( name = "" ,values =   c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" ))  + annotate( "text",label = paste ("Spearman correlation \nP-value =",  signif (sp_S$p.value,2) ,expression ( "ρ =") ,signif (sp_S$estimate,2)), y = 100, x =85, size = 6 , family = "Helvetica")   + annotation_logticks(sides ="b" )  +ylab("") + theme (axis.text.x = element_text(size = 16),axis.text.y = element_text(size = 16) ) + theme(legend.position="none") +  scale_x_continuous(trans=reverselog_trans(10),breaks= c(10,25,50, 100,200, 300) )
+
+
+
+
+
+write.table ( trans20183, "donnee stats pour transmi.txt", sep = "\t", quote = F)
+
+```
+
+```{r}
+
+
+
+
+trans = read.table ( "transmitance.txt", header= T, dec = ",",sep = "\t",fill = T,quote = "")
+
+
+#qlt = trans[c(17,3)]
+
+
+qlt = trans[c(17,18:21)]
+colnames (qlt ) = c("Classement", "L", "a", "b", "XT")
+
+qlt$XT = as.character(qlt$XT)
+qlt$XT = sub(",", "",qlt$XT)
+qlt$XT = as.numeric(qlt$XT)
+
+qlt_na = na.omit(qlt)
+
+qlt_na = qlt_na[qlt_na$Classement != "",]
+
+qlt_na = unique(qlt_na )
+
+
+qlt_na$Classement = as.character ( qlt_na$Classement)
+
+qlt_na$Classement = sub ( "OK", "Std",qlt_na$Classement)
+
+qlt_na$Classement = as.factor ( qlt_na$Classement)
+
+M_qlt_na = melt (qlt_na, id.vars = c( "Classement") )
+
+M_qlt_na$Classement = factor(M_qlt_na$Classement,levels(M_qlt_na$Classement)[c(5,6,1,2,3,4)])
+
+
+qlt_na$Classement = factor( qlt_na$Classement  ,levels(qlt_na$Classement )[c (5,6,1,2,3,4)])
+
+model2_anov = aov(L ~ Classement ,
+                   data=qlt_na)
+
+   X=    TukeyHSD(model2_anov, group=TRUE)
+ 
+  TUKEY <- TukeyHSD(x=model2_anov, 'Classement', conf.level=0.95)
+
+
+  
+  model2_anov_NP_L = kruskal.test(b ~ Classement , data=qlt_na)
+  
+  model2_anov_NP_L$p.value
+  
+  qlt_na = qlt_na[order (qlt_na$Classement),]
+  
+   SD_L=  Steel.Dwass( round (qlt_na$L,4), as.character (qlt_na$Classement))
+ 
+  
+  
+ tukey.kruskal.test(round (qlt_na$L,4), qlt_na$Classement, alpha=.05)
+ 
+ posthoc.kruskal.dunn.test(L~Classement,qlt_na, alpha = 0.05)
+
+  anoNP 
+  
+  
+  
+  labels<-generate_label_df(TUKEY , "Classement")#generate labels using function
+
+ a = data.frame ( X$Classement)
+a$name = rownames(a)
+
+XT_group = data.frame(labels)
+X$Classement
+
+ colnames (a)[4] = paste ("p adj", "L")
+
+for (g in c("a", "b", "XT" ) ) {
+model2_anov = aov(qlt_na[,g] ~ Classement ,
+                   data=qlt_na)
+
+   X=    TukeyHSD(model2_anov, conf.level=0.95, group=TRUE)
+ TUKEY <- TukeyHSD(x=model2_anov, 'Classement', conf.level=0.95)
+
+labels<-generate_label_df(TUKEY , "Classement")#generate labels using function
+
+ 
+ 
+XT2_group = data.frame(labels)
+
+XT_group = rbind ( XT_group , XT2_group)
+ 
+a1 = data.frame ( X$Classement)
+a1$name = rownames(a1)
+colnames (a1)[4] = paste ("p adj", g)
+a = merge ( a, a1[,c(5,4)], by="name")
+
+}
+   
+
+ XT_group$Letters
+  XT_group$variable = c ( rep( "L",6) , rep( "a",6), rep( "b",6),rep( "XT",6))
+  
+ 
+ XT_group2= data.frame ( label = XT_group)
+ names( XT_group2)<-c('Letters','Classement',"variable")#rename columns for merging
+
+  yvalue = aggregate(value ~ Classement + variable, data = M_qlt_na, mean)
+ colnames ( yvalue)[1] = "Fact"
+ 
+ final<-merge(XT_group2,yvalue, by.x = c ("variable","Classement"), by.y =c ("variable", "Fact")) #merge dataframes
+
+ #final= final[,-3]
+  
+ #final$variable = c ( "L","a","b","XT")
+   
+ 
+ final_WK = final
+ 
+ final_WK$Letters = "a"
+ 
+xr = ggplot (M_qlt_na, aes(x = Classement, y = value)) + geom_boxplot(aes (fill = Classement) ) + geom_point() + scale_fill_manual(name = " Associated\n syrup quality" ,values =   c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" )) + ylab("")+ xlab("") + facet_wrap( ~variable, ncol = 2, scales = "free")
+
+
+xr + geom_label (data  = final_WK,aes(x = Classement, y = value ,label = Letters),vjust=-.5,hjust=-.5 ,family="Helvetica")  +
+    theme(plot.title=element_text(family="Helvetica", face="bold", size=20) , legend.text=element_text(size=18) , axis.text.x = element_text(angle = 60, hjust = 1,size = 12),axis.text.y = element_text(size = 12) ) + theme(legend.position="none")
+
+
+
+
+
+
+```
+
+
+
+```{r}
+
+
+
+
+
+
+
+
+
+
+
+###################correlation to light
+
+
+t_DF_fitness$name = rownames ( t_DF_fitness )
+
+names_Sel = t_DF_fitness$name
+
+names_Sel = sort ( names_Sel)
+
+names_Sel2 = names_Sel [c (1:26,45)]
+
+t_DF_fitness_Sel = t_DF_fitness[t_DF_fitness$name %in% names_Sel2,]
+
+DF_tqf = merge ( x = t_DF_fitness_Sel, by.x = "name", trans ,by.y = "Code.échantillon",all.x = T)
+
+DF_tqf$name
+
+
+DF_cor_L = data.frame ( Yeast = colnames (t_DF_fitness ), cor_a = 0, pval_a =1  , cor_b = 0, pval_b =1, cor_L = 0, pval_L =1, cor_XT = 0, pval_XT =1  )
+
+ i = 1
+ j = 1
+ dfrf =  colnames (t_DF_fitness )
+ 
+  dfrf= sort (  dfrf)
+ 
+ 
+  dfrf2 = dfrf[3:10]
+  
+for (h in dfrf[-c(1,2)]) {    # 
+
+  Y_S = h
+
+ DF_cor_L[i,1] = h
+ 
+DF_tqf[,h] = as.numeric ( as.character (DF_tqf[,h] ))
+
+u=2
+uu=u+1
+
+for( gy in c ( "a." , "b.", "L.", "X.T.à.560.nm")) {
+  
+
+ a_Sel = DF_tqf[, c(h, gy)]
+
+
+ Ca= cor.test( a_Sel[,1],a_Sel[,2],method = "spearman" )
+
+   DF_cor_L[i,u] = Ca$estimate
+   DF_cor_L[i,uu] = Ca$p.value
+  
+   u = u+2
+   uu=u+1
+   
+}
+i=i+1
+}
+
+DF_cor_L_a = DF_cor_L
+
+DF_cor_L_a$FDR_a = p.adjust(DF_cor_L$pval_a  ,"fdr")
+
+  
+DF_cor_L_a = DF_cor_L[DF_cor_L$pval_a < 0.01,]
+DF_cor_L_b =DF_cor_L[DF_cor_L$pval_b < 0.01,]
+
+DF_cor_L_L = DF_cor_L[DF_cor_L$pval_L < 0.01,]
+DF_cor_L_XT =  DF_cor_L[DF_cor_L$pval_L < 0.01,]
+
+
+
+
+write.table (DF_cor_L_L$Yeast ,"061217liste gene pour GO transmi.txt", quote =F, col.names =F, row.names = F)
+
+
+
+
+DF_cor_L2 = DF_cor_L[ DF_cor_L$pval_a <0.01 | DF_cor_L$pval_L <0.01,]
+
+
+
+DF_cor_L2 = DF_cor_L[ DF_cor_L$pval_a <0.01 | DF_cor_L$pval_L <0.01,]
+
+
+ggplot ( DF_cor_L2, aes(  x = cor_L, y = cor_a )  ) + geom_point()
+
+
+
+DF_cor_L2_moins = DF_cor_L2[ DF_cor_L2$cor_a <0,]
+
+
+
+DF_cor_L2_plus = DF_cor_L2[ DF_cor_L2$cor_a >0,]
+
+
+
+DF_cor_L2_moins = DF_cor_L2_moins[order(DF_cor_L2_moins$cor_L),]
+DF_cor_L2_plus = DF_cor_L2_plus[order(DF_cor_L2_plus$cor_L),]
+
+
+write.table (DF_cor_L2  ,"061217liste gene pour GO transmi L.txt", quote =F, col.names =T, row.names = F,sep = "\t")
+
+write.table (DF_cor_L ,"25.01.18 correlation transmittance fitness.txt", quote =F, col.names =T, row.names = F,sep = "\t")
+
+
+
+#########################################################
+
+setwd("~/Dropbox/Projet SAP ( collection KO)/dosage AA")
+
+ttt = read.table ( "inorganic.txt",header = T,sep = "\t",fill = T)
+
+
+tt = ttt [ttt $annee == 2016,]
+
+
+
+DF_snp = merge ( x = t_DF_fitness_Sel, by.x = "name", tt ,by.y = "Echantillon",all.x = T)
+
+
+
+DF_cor_SNP = data.frame ( Yeast = colnames(t_DF_fitness_Sel), cor_S = 0, pval_S =1  , cor_N = 0, pval_N =1, cor_P = 0, pval_P =1 )
+
+ i = 1
+ j = 1
+ dfrf = colnames(t_DF_fitness_Sel)
+ 
+  dfrf= sort (  dfrf)
+ 
+ 
+  dfrf2 = dfrf[3:10]
+  
+for (h in dfrf[-c(1,2)]) {    # 
+
+  Y_S = h
+
+ DF_cor_SNP [i,1] = h
+ 
+DF_snp [,h] = as.numeric ( as.character (DF_snp [,h] ))
+
+u=2
+uu=u+1
+
+for( gy in c ( "S.SO42." , "N.NH4.", "P.PO43.")) {
+  
+
+ a_Sel = DF_snp [, c(h, gy)]
+
+
+ Ca= cor.test( a_Sel[,1],a_Sel[,2],method = "spearman" )
+
+   DF_cor_SNP [i,u] = Ca$estimate
+   DF_cor_SNP [i,uu] = Ca$p.value
+  
+   u = u+2
+   uu=u+1
+   
+}
+i=i+1
+}
+
+  write.table (DF_cor_SNP ,"25.01.18 correlation SNP fitness.txt", quote =F, col.names =T, row.names = F,sep = "\t")
+
+  
+DF_cor_SNP2 =DF_cor_SNP
+
+
+
+
+DF_cor_SNP2$FDR_S = p.adjust(DF_cor_SNP2$pval_S  ,"fdr")
+
+
+
+
+
+DF_cor_SNP2$FDR_N = p.adjust(DF_cor_SNP2$pval_N  ,"fdr")
+DF_cor_SNP2$FDR_P = p.adjust(DF_cor_SNP2$pval_P  ,"fdr")
+
+
+
+DF_cor_SNP2_P= DF_cor_SNP2[DF_cor_SNP2$FDR_P< 0.01,]
+DF_cor_SNP2_N= DF_cor_SNP2[DF_cor_SNP2$FDR_N< 0.01,]
+
+
+DF_cor_SNP2_S= DF_cor_SNP2[DF_cor_SNP2$FDR_S< 0.01,]
+
+
+
+DF_cor_SNP2_FDR = DF_cor_SNP2[DF_cor_SNP2$FDR_N <0.01 | DF_cor_SNP2$FDR_S <0.01,]
+
+
+ggplot ( DF_cor_SNP2, aes(  x = cor_S, y = cor_N)  ) + geom_point()
+
+ggplot ( DF_cor_SNP2, aes(  x = cor_S, y = cor_P )  ) + geom_point()
+
+ggplot ( DF_cor_SNP2_FDR, aes(  x = cor_P, y = cor_N )  ) + geom_point()
+
+
+  DF_cor_L_S =DF_cor_SNP2_FDR[DF_cor_SNP2_FDR$FDR_N < 0.01,]
+
+  
+   
+  DF_cor_L_S_P =    DF_cor_L_S[  DF_cor_L_S$cor_S>0,]
+  DF_cor_L_S_M =  DF_cor_L_S[  DF_cor_L_S$cor_S<0,]
+  
+
+  DF_cor_L_S_P2 = merge (   DF_cor_L_S_P, correspondance_SC, by.x = "Yeast", by.y = "V1")
+  
+   DF_cor_L_S_M2 = merge (   DF_cor_L_S_M, correspondance_SC, by.x = "Yeast", by.y = "V1")
+  
+  
+
+write.table (  DF_cor_L_S_P2$V2 ,"061217liste gene pour GO SNP P.txt", quote =F, col.names =F, row.names = F)
+
+write.table (  DF_cor_L_S_M2$V2 ,"061217liste gene pour GO SNP M.txt", quote =F, col.names =F, row.names = F)
+
+
+
+
+
+```
+
+```{r}
+
+
+
+
+
+
+#### super liste p val
+##qualite = F_v_F
+## SBB = Person_pval
+## trans = DF_cor_L
+## inorga = DF_cor_SNP
+
+
+F_v_F2 = F_v_F [,c(1,2,5,9)]
+colnames (F_v_F2 ) = c("S_name","ORF", "Delta_fitness","Pval_Q")
+
+#Person_pval2 = merge( Person_pval, correspondance_SC, by.x = "V1", by.y ="V1" )
+
+F_v_F2[duplicated(F_v_F2),]
+Person_pval[duplicated(Person_pval),]
+
+
+M_pval_all_condition = merge ( Person_pval,F_v_F2 , by.y =  "ORF", by.x =  "V1", all= T )
+
+M_pval_all_condition = M_pval_all_condition[,c (1,2,3,4,7)]
+
+colnames(M_pval_all_condition) = c ( "Yeast", "ORF", "delta_fitness" ,"Quality subset",  "SBB subset" )
+
+
+
+#M_pval_all_condition = merge (M_pval_all_condition,DF_cor_L, by.x =  "ORF", by.y =  "Yeast" #)
+
+DF_cor_SNP2 = merge( DF_cor_SNP, correspondance_SC, by.y = "V1", by.x ="Yeast" )
+
+
+
+M_pval_all_condition2 = merge (M_pval_all_condition,DF_cor_SNP, by.x =  "ORF", by.y =  "Yeast" ,all=F)
+
+
+M_pval_all_condition_Pval = M_pval_all_condition[,c(1,2,3,4,7,17,19)]
+
+colnames(M_pval_all_condition_Pval) = c ( "ORF", "Yeast", "delta_fitness" ,"Quality subset",  "SBB subset", "Sulfur Subset","Nitrogen subset" )
+
+
+
+M_pval_all_condition_FDR = M_pval_all_condition_Pval
+
+for (c in 7 : length(M_pval_all_condition_FDR )){
+
+  M_pval_all_condition_FDR[,c] = p.adjust(  M_pval_all_condition_FDR[,c]  , "fdr")
+}
+
+
+M_pval_all_condition_binar = M_pval_all_condition_FDR
+
+
+  for (hh in 1: nrow ( M_pval_all_condition_binar) ) {
+  
+  if ( M_pval_all_condition_FDR[hh,4] <0.05 & abs ( M_pval_all_condition_FDR[hh,3])>0.02) {M_pval_all_condition_binar[hh,4] = 1 }else{M_pval_all_condition_binar[hh,4] = 0}
+  
+}
+
+
+for (h in 4: length ( M_pval_all_condition_binar) ) {
+  
+  for (hh in 1: nrow ( M_pval_all_condition_binar) ) {
+  
+  if ( M_pval_all_condition_FDR[hh,h] <0.01) {M_pval_all_condition_binar[hh,h] = 1 }else{M_pval_all_condition_binar[hh,h] = 0}
+  
+  
+  
+}
+}
+  
+colnames(M_pval_all_condition_binar)[9,10] = c ( "subset sulfur", "subset nitrogen")
+
+library ( UpSetR)
+
+upset(M_pval_all_condition_binar[,-c(1,2)] ,sets = colnames(M_pval_all_condition_binar[,-c(1,2,5:8,11)]),order.by = "freq",text.scale = 1.6)
+
+
+
+M_pval_all_condition_cor=  M_pval_all_condition[, c(1,7,17,19)]
+
+
+
+
+#F_v_F = 
+  M_pval_all_condition_cor = merge ( M_pval_all_condition_cor, F_v_F[,c(1,5)], by.x = "ORF", by.y = "V1.x" )
+  
+  
+pairs(M_pval_all_condition_cor[,-1], lower.panel=panel.smooth, upper.panel=panel.cor,cex.labels = 4)
+
+
+
+
+
+```
+
+```{r}
+
+
+
+
+##### correlation NH4 S et qualite
+
+setwd("~/Dropbox/Projet SAP ( collection KO)/Nouvelles alignements/final")
+
+
+trans = read.table ( "transmitance.txt", header= T, dec = ",",sep = "\t",fill = T,quote = "")
+
+
+tttt = merge( ttt, trans, by.x = c ( "annee","Echantillon"), by.y = c ( "annee","C_name") )
+tttt = tttt[tttt$Classement.2 != "",]
+
+  tttt$Classement.2 =as.character (tttt$Classement.2)
+   
+  tttt$Classement.2 =sub ("OK","Std",tttt$Classement.2)
+  
+   tttt$Classement.2  = factor (tttt$Classement.2)
+
+tttt$Classement.2 = factor ( tttt$Classement.2)
+
+ tttt= tttt[order(tttt$Classement.2),]
+ 
+ tttt_C= tttt
+ 
+ tttt$Classement.3 = factor(  tttt_C$Classement.2 , levels (   tttt_C$Classement.2)[c(5,1,6,2,3,4)])
+ 
+  model2_anov_S = kruskal.test(S.SO42.~ Classement.2 , data=tttt)
+  
+  #Steel.Dwass( x =   tttt$N.NH4., group = as.character  (tttt$Classement.2  )     )
+ # wilcox.test(tttt$N.NH4. [ tttt$Classement.2 == "Std"],tttt$N.NH4. [ tttt$Classement.2 == "5"], correct=FALSE)
+ #  posthoc.kruskal.dunn.test(S.SO42.~Classement.2,tttt, alpha = 0.05)
+ 
+  sus =   model2_anov_S$p.value
+    dunn.test.control ( tttt$S.SO42., tttt$Classement.3, p.adjust.method = "fdr")
+
+  
+  
+# TUKEY <- TukeyHSD(x=model2_anov_S, 'Classement.2', conf.level=0.95)
+
+#labels<-generate_label_df(TUKEY , "Classement.2")#generate labels using function
+
+      yvalue = aggregate(S.SO42. ~ Classement.2 , data = tttt_C,max)
+      
+      colnames( labels)[2]= "Classement.2"
+      
+  labels_MS = merge ( labels, yvalue, by= "Classement.2")
+  
+  colnames (labels_M )[1] =  "Classement.2_o"
+  
+  labels_MS$S.SO42. =  labels_MS$S.SO42. +1
+ 
+  #  labels_MS$Letters = c("a","ab","b","ab","ab","ab")
+      labels_MS$Letters = c("","","","","","")
+   ###### N
+  
+  
+   model2_anov_NP_L = kruskal.test(N.NH4.~ Classement.2 , data=tttt)
+  
+  model2_anov_N = aov(N.NH4.~ Classement.2 , data=tttt)
+  
+# posthoc.kruskal.dunn.test(N.NH4.~Classement.2,tttt, alpha = 0.05)
+
+  sun =  model2_anov_NP_L$p.value
+  
+  
+ TUKEY <- TukeyHSD(x=model2_anov_N, 'Classement.2', conf.level=0.95)
+
+labels<-generate_label_df(TUKEY , "Classement.2")#generate labels using function
+
+
+      yvalue = aggregate(N.NH4. ~ Classement.2 , data = tttt_C,max)
+      
+      colnames( labels)[2]= "Classement.2"
+      
+  labels_MN = merge ( labels, yvalue, by= "Classement.2")
+  
+  colnames (labels_M )[1] =  "Classement.2_o"
+  
+  labels_MN$N.NH4. =  labels_MN$N.NH4. +1
+ 
+      dunn.test.control ( tttt$N.NH4., tttt$Classement.3, p.adjust.method = "fdr")
+
+  
+  
+   labels_MN$Letters = c("","","***","**","","")
+   
+  
+   ###### P
+  
+  
+   model2_anov_NP_L = kruskal.test(P.PO43.~ Classement.2 , data=tttt)
+  
+  model2_anov_P = aov(P.PO43.~ Classement.2 , data=tttt)
+  
+   
+  
+  
+  sup =   model2_anov_NP_L$p.value
+  
+ TUKEY <- TukeyHSD(x=model2_anov_P, 'Classement.2', conf.level=0.95)
+
+labels<-generate_label_df(TUKEY , "Classement.2")#generate labels using function
+
+
+    posthoc.kruskal.dunn.test(P.PO43.~Classement.2,tttt, alpha = 0.05)
+ 
+  
+  
+  tukey.kruskal.test(tttt$P.PO43., tttt$Classement.2 , alpha=.05)
+  
+   
+      yvalue = aggregate(P.PO43. ~ Classement.2 , data = tttt_C,max)
+      
+      colnames( labels)[2]= "Classement.2"
+      
+  labels_MP = merge ( labels, yvalue, by= "Classement.2")
+  
+  colnames (labels_M )[1] =  "Classement.2_o"
+  
+  labels_MP$P.PO43. =  labels_MP$P.PO43. +1
+ 
+  dunn.test.control ( tttt$P.PO43., tttt$Classement.3, p.adjust.method = "fdr")
+labels_MP$Letters = c("","","","","","")
+  
+   ######
+   
+  tttt_C$Classement.2 =   factor(  tttt_C$Classement.2 , levels (   tttt_C$Classement.2)[c(5,6,1:4)])
+   
+     tttt_C_na2 =  tttt_C[!is.na(tttt_C$S.SO42.),]
+
+
+  write.table (  tttt_C, "donnee stats pour inorga.txt", sep = "\t", quote = F)
+ 
+     
+FRT111 = ggplot (tttt_C , aes ( x =Classement.2, y = S.SO42., fill =Classement.2)  )+ geom_boxplot()+ geom_point() + xlab ("") + scale_fill_manual( name = "" ,values =   c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" )) # c ( "#83AF9B",   "#C8C8A9","#F9CDAD", "#EA2A15","#2A5C0B",  "#042608"))
+
+
+ FRT1 = FRT111 + geom_text(data = labels_MS, aes ( x =Classement.2 , y = S.SO42. ,label = Letters), size = 6 , family = "Helvetica")  +
+    theme(plot.title=element_text(family="Helvetica", face="bold", size=20) , legend.text=element_text(size=18) , axis.text.x = element_text( size = 16),axis.text.y = element_text(size = 16), axis.title.y  = element_text(size = 26, family="Helvetica" )) + annotate( "text",label = paste ("Kruskal Wallis test \nP-value =", scientific ( sus,2)), y = 100, x =2, size = 6 , family = "Helvetica")+ theme(legend.position="none") + ylab(expression("SO"[4]^"2-"~" (uM)"))
+
+ #N.NH4.
+
+FRT222 = ggplot (tttt_C , aes ( x =Classement.2, y = N.NH4., fill =Classement.2)  )+ geom_boxplot()+ geom_point()+ xlab ("") + scale_fill_manual( name = "" ,values =   c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" )) # c ( "#83AF9B",   "#C8C8A9","#F9CDAD", "#EA2A15","#2A5C0B",  "#042608"))
+
+
+ FRT2 = FRT222 + geom_text(data = labels_MN, aes ( x =Classement.2 , y = N.NH4. ,label = Letters), size = 6 , family = "Helvetica")  +
+    theme(plot.title=element_text(family="Helvetica", face="bold", size=20) , legend.text=element_text(size=18) , axis.text.x = element_text(size = 16),axis.text.y = element_text(size = 16), axis.title.y  = element_text(size = 26, family="Helvetica" )) + annotate( "text",label = paste ("Kruskal Wallis test \nP-value =",  round ( sun,4)), y = 350, x =2, size = 6 , family = "Helvetica")+ theme(legend.position="none") + ylab(expression("NH"[4]^"+"~" (uM)"))
+
+#P.PO43.
+
+FRT333 = ggplot (tttt_C , aes ( x =Classement.2, y = P.PO43., fill =Classement.2)  )+ geom_boxplot()+ geom_point()+ xlab ("") + scale_fill_manual( name = "" ,values =   c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" )) # c ( "#83AF9B",   "#C8C8A9","#F9CDAD", "#EA2A15","#2A5C0B",  "#042608"))
+
+
+ FRT3 = FRT333 + geom_text(data = labels_MP, aes ( x =Classement.2 , y = P.PO43. ,label = Letters), size = 6 , family = "Helvetica")  +
+    theme(plot.title=element_text(family="Helvetica", face="bold", size=20) , legend.text=element_text(size=18) , axis.text.x = element_text( size = 16),axis.text.y = element_text(size = 16), axis.title.y  = element_text(size = 26, family="Helvetica" )) + annotate( "text",label = paste ("Kruskal Wallis test \nP-value =",  round ( sup,2)), y = 27, x =2, size = 6 , family = "Helvetica")+ theme(legend.position="none") + ylab(expression("PO"[4]^"3-"~" (uM)"))
+
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+library("scales")
+reverselog_trans <- function(base = exp(1)) {
+    trans <- function(x) -log(x, base)
+    inv <- function(x) base^(-x)
+    trans_new(paste0("reverselog-", format(base)), trans, inv, 
+              log_breaks(base = base), 
+              domain = c(1e-100, Inf))
+}
+
+
+
+
+tttt_C_na = na.omit(tttt_C)
+
+sp_N = cor.test (tttt_C_na$N.NH4.,tttt_C_na$Sbb, method = "spearman"  )
+sp_S = cor.test (tttt_C_na$S.SO42.,tttt_C_na$Sbb, method = "spearman"  )
+sp_p = cor.test (tttt_C_na$P.PO43.,tttt_C_na$Sbb, method = "spearman"  )
+
+fmt_dcimals <- function(decimals=0){
+   # return a function responpsible for formatting the 
+   # axis labels with a given number of decimals 
+   function(x) as.character(round(x,decimals))
+}
+#S.SO42.
+
+FRT11 = ggplot (tttt_C_na , aes ( x =Sbb, y = S.SO42. ) )+ geom_point( aes ( color =Classement.2),size = 5)+ xlab ("") + geom_smooth(se =F) + scale_color_manual( name = "" ,values =   c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" ))  + annotate( "text",label = paste ("Spearman correlation \nP-value =",  signif (sp_S$p.value,2) ,expression ( "ρ =") ,signif (sp_S$estimate,2)), y = 100, x =85, size = 6 , family = "Helvetica")   + annotation_logticks(sides ="b" )  +ylab("") + theme (axis.text.x = element_text(size = 16),axis.text.y = element_text(size = 16) ) + theme(legend.position="none") +  scale_x_continuous(trans=reverselog_trans(10),breaks= c(10,25,50, 100,200, 300) )
+
+
+# N.NH4.
+
+FRT22 = ggplot (tttt_C_na , aes ( x =Sbb, y = N.NH4. ) )+ geom_point( aes ( color =Classement.2),size = 5)+ xlab ("") + geom_smooth(se =F) + scale_color_manual( name = "" ,values =   c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" ))   + annotate( "text",label = paste ("Spearman correlation \nP-value =",  signif (sp_N$p.value,2),expression ( "ρ =") ,signif (sp_N$estimate,2)), y = 300, x =85, size = 6 , family = "Helvetica")  + annotation_logticks(sides ="b" )  +ylab("") + theme (axis.text.x = element_text(size = 16),axis.text.y = element_text(size = 16) ) + theme(legend.position="none")  +  scale_x_continuous(trans=reverselog_trans(10),breaks= c(10,25,50, 100,200, 300) )
+
+#P.PO43.
+
+FRT33 = ggplot (tttt_C_na , aes ( x =Sbb, y = P.PO43. ) )+ geom_point( aes ( color =Classement.2),size = 5)+ xlab ("") + geom_smooth(se =F) + scale_color_manual( name = "" ,values =   c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" ))   + annotate( "text",label = paste ("Spearman correlation \nP-value =",  signif (sp_p$p.value,2),expression ( "ρ =") ,signif (sp_p$estimate,2)), y = 20, x =85, size = 6 , family = "Helvetica")  + annotation_logticks(sides ="b" )  +ylab("") + theme (axis.text.x = element_text(size = 16),axis.text.y = element_text(size = 16),,axis.title.x = element_text(size = 26) ) + theme(legend.position="none")   +  scale_x_continuous(trans=reverselog_trans(10),breaks= c(10,25,50, 100,200, 300) ) #+ xlab ( expression("S"[bb]))
+
+
+
+#multiplot( FRT1,FRT11, FRT2, FRT22, FRT3,FRT33, cols=2)
+
+
+ggplot (tttt_C_na , aes ( x =Sbb, y = P.PO43. ) )+ geom_point( aes ( color =Classement.2),size = 5)+ xlab ("") + geom_smooth(se =F) + scale_color_manual( name = "Class" ,values =   c ( "#61ADA0","#C5BE88", "#908C97" ,"#546433", "#F87E7B", "red" ))   + annotate( "text",label = paste ("Spearman correlation \nP-value =",  signif (sp_p$p.value,2)), y = 22, x =85, size = 6 , family = "Helvetica")  + annotation_logticks(sides ="b" )  +ylab("") + theme (axis.text.x = element_text(size = 16),axis.text.y = element_text(size = 16),,axis.title.x = element_text(size = 26) )    +  scale_x_continuous(trans=reverselog_trans(10),breaks= c(10,25,50, 100,200, 300) ) + xlab ( expression("S"[bb])) + theme(legend.text = element_text(size = 26)  , legend.title = element_text(size = 26) ) + 
+  theme(legend.key.height=unit(2.5,"line"))+ theme(legend.key.width=unit(2.5,"line"))+ 
+  guides(shape = guide_legend(override.aes = list(size=1))) 
+
+
+
+multiplot( FRT1, FRT2, FRT3,FRT11, FRT22,FRT33, cols=2)
+
+
+
+multiplot( FRT11, FRT22, cols=1)
+
+
+
+DF_tqf$Sbb
+
+
+cor.test( tttt_C_na$N.NH4., tttt_C_na$S.SO42., method= "spearman")
+
+#####################
+
+DF_fitness_05_d = DF_fitness_05
+
+s= sort(colnames(DF_fitness_05_d))
+
+s = s[-c (27:43,45)]
+
+#DF_fitness_05_d = DF_fitness_05_d[,-46]
+DF_fitness_05_d = DF_fitness_05_d[,s]
+
+
+rownames ( DF_fitness_05_d) = DF_fitness_05_d$V1
+
+
+
+dist_usarrests = dist(t(DF_fitness_05_d[,-27]))
+
+# hierarchical clustering analysis
+clus_usarrests = hclust(dist_usarrests, method = "ward.D")
+
+# plot dendrogram
+plot(clus_usarrests, hang = -1)
+#
+library(ape)
+#
+
+phylo_tree = as.phylo(clus_usarrests)
+
+
+library(ggplot2)
+library("ggtree")
+
+clusters_tree = cutree(clus_usarrests,k = 2)
+
+C_name = data.frame( name = names(clusters_tree), cluster  = clusters_tree )
+
+#plot (clusters_tree)
+
+
+test = data.frame ( order =  clus_usarrests$order, name = clus_usarrests$labels)
+
+Mertest = merge ( x = C_name , by.x = "name", y = CDATA, by.y= "Code.échantillon" ) 
+
+library("PMCMR")
+library("MultNonParam")
+library("kSamples")
+#anoNP = kruskal.test(SBB ~ cluster , Mertest )
+
+#posthoc.kruskal.dunn.test(SBB ~ cluster , Mertest, alpha = 0.05)
+
+
+#wilcox.test(SBB ~ cluster , Mertest )
+
+
+
+#test = sort( phylo_tree$edge.length,decreasing = T)
+#S_R1 = phylo_tree$edge.length[1]
+
+
+phylo_tree2 = phylo_tree
+
+#phylo_tree2$edge.length = cut ( phylo_tree2$edge.length,breaks = c(50, 0.5,0.1,0.0001),include.lowest = T,
+      # labels = c(0.2,0.5,1))
+
+#phylo_tree2$edge.length= as.numeric( as.character (phylo_tree2$edge.length))
+
+
+#phylo_tree2$edge.length[1] = 1.5
+
+phylo_tree2$edge.length = sqrt(phylo_tree2$edge.length )
+#phylo_tree2$edge.length [phylo_tree2$edge.length > 1.4] = 0.7
+
+#phylo_tree2$edge.length= round ( phylo_tree2$edge.length,3)
+
+#ggtree(phylo_tree, layout="unrooted",branch.length="none") + ggtitle("(Phylogram) circular layout") + geom_tiplab(aes(angle=angle), color='blue')
+
+
+a = ggtree(phylo_tree2, layout="unrooted",branch.length = "branch.length",size=0.0,color = "grey50") 
+#a = ggtree(phylo_tree2, layout="unrooted",branch.length = "none") + ggtitle("(Phylogram) circular layout") 
+
+
+
+library ( scales)
+
+
+x = c(0,0.5,1,2)
+#lead$V5 = as.numeric ( as.character (lead$Nb.barils.VR5)) / 
+#  as.numeric ( as.character (lead$Nb.barils.total))
+
+#lead$V5name = lead$V5 
+
+#lead$V5name[lead$V5 <0.50] = "1-50%"
+#lead$V5name[lead$V5 ==0] = "0%"
+
+#lead$V5name[lead$V5 >0.50] = "50-100%"
+
+
+#lead$total_cut = cut ( lead$Total , c(0, 10,100,1000,2000),include.lowest = T,
+                                # labels = c("[0-10]","(10-100]","(100-1000]",">1000"))
+
+CDATA2 = trans[trans$Type == "sève",]
+
+
+CDATA2$Code.échantillon = sub("P2-4 28", "P2.4_28" , CDATA2$Code.échantillon)
+
+
+ttrans = CDATA2[CDATA2$Code.échantillon %in% c (colnames(DF_fitness_05_d[,-27]) ,"P2-4 28") ,]
+ 
+colnames(ttrans)[2] = "C_name"
+
+Mertest = merge ( x = C_name , by.x = "name", y = CDATA2, by.y= "Code.échantillon" ) 
+
+
+
+
+  a  %<+% ttrans[,-1]  + 
+     geom_tippoint(  aes(x = x, y = y , fill = log10 (Sbb),shape = as.factor(Classement.2) ), size = 12,
+                     color = "black",alpha=1,position = "identity") + 
+     
+     scale_size_manual(values = c(4,6,8,10,12)) +
+     #scale_fill_continuous(name = "SBB",low = "red", high = "blue") + 
+     scale_colour_gradientn(colours=c("#C68E06","#0305C9","#0305C9"),
+                            values=rescale(x), 
+                            space = "Lab", breaks = c( 25 ,50, 100,200), guide = guide_legend())+
+     scale_alpha_discrete( range = c (0,1)) +  
+     scale_fill_gradientn(colours=c("#d53e4f","#f46d43","#fdae61",
+                                    "#fee08b","#e6f598","#abdda4","#ddf1da"),
+                          values=rescale(x), 
+                          space = "Lab", breaks = c( 25 ,50, 100,200), guide = guide_legend()) + 
+     scale_shape_manual( values = c (25,22,22,22,22,21,22))
+   
+   
+   ttrans$Classement.2
+   
+  
+  
+   f = a  %<+% ttrans[,-1]  +
+     geom_tippoint(  aes(x = x, y = y , fill = log10 (Sbb),shape = as.factor(Classement.2) ), size = 4,
+                     color = "black",alpha=1,position = "identity") + 
+     
+     scale_size_manual(values = c(4,6,8,10,12)) +
+     #scale_fill_continuous(name = "SBB",low = "red", high = "blue") + 
+     scale_colour_gradientn(colours=c("#C68E06","#0305C9","#0305C9"),
+                            values=rescale(x), 
+                            space = "Lab", breaks = c( 25 ,50, 100,200), guide = guide_legend())+
+     scale_alpha_discrete( range = c (0,1)) +  
+     scale_fill_gradientn(colours=c("#d53e4f","#f46d43","#fdae61",
+                                    "#fee08b","#e6f598","#abdda4","#ddf1da"),
+                          values=rescale(x), 
+                          space = "Lab", breaks = c( 25 ,50, 100,200), guide = guide_legend()) + 
+     scale_shape_manual( values = c (95,49,52,53,54,83,86)) +
+  theme(
+    panel.background = element_rect(fill = "transparent") # bg of the panel
+    , plot.background = element_rect(fill = "transparent") # bg of the plot
+    , panel.grid.major = element_blank() # get rid of major grid
+    , panel.grid.minor = element_blank() # get rid of minor grid
+    , legend.background = element_rect(fill = "transparent") # get rid of legend bg
+    , legend.box.background = element_rect(fill = "transparent") # get rid of legend panel bg
+  )
+   fgt= round (16.51/3,0)
+  
+   fgrt = round (20.57/3,0)
+   
+ggsave("airquality.png", f, bg = "transparent",height  =  fgt, width =  fgrt )
+   
+
+   
+ttrans$Classement.4 = ttrans$Classement.2
+ttrans$Classement.4 = sub ( "", "Not classified", ttrans$Classement.4)  
+
+ttrans$Classement.4 = sub ( "Not classifiedOK", "Std", ttrans$Classement.4)
+ttrans$Classement.4 = sub ( "Not classified1", "With defect", ttrans$Classement.4)
+ttrans$Classement.4 = sub ( "Not classified5", "With defect", ttrans$Classement.4)
+ ttrans$Classement.4 = sub ( "Not classified6", "With defect", ttrans$Classement.4)
+ ttrans$Classement.4 = sub ( "Not classified4", "With defect", ttrans$Classement.4)
+ ttrans$Classement.4 = sub ( "Not classifiedV", "With defect", ttrans$Classement.4)
+ 
+ ttrans$Classement.4 =factor ( ttrans$Classement.4)
+ 
+  ttrans$Classement.4= factor ( ttrans$Classement.4, levels (ttrans$Classement.4)[c(2,3,1)])
+ 
+   
+ggplot (  ttrans, aes ( x = C_name, y = log10 (Sbb), color = log10(Sbb), shape = Classement.4))+ geom_point()+
+  scale_colour_gradientn(name=expression("S"[bb],"\n"), colours=c("#d53e4f","#f46d43","#fdae61",
+                                   "#fee08b","#e6f598","#abdda4","#ddf1da"),
+                         values=rescale(x), 
+                         space = "Lab" , label = c( 25 ,50, 100,200)) +
+  theme(legend.title=element_text(family="Helvetica", face="bold", size=30) , 
+       legend.text=element_text(size=26, family="Helvetica", ) , 
+       axis.title.y = element_text(size = 22)  )+ 
+    scale_shape_manual(name= "Class",values = c (21,22,24)) + 
+  theme(legend.background = element_rect(fill="white") ) + 
+  theme(legend.key.height=unit(2.5,"line"))+ theme(legend.key.width=unit(2.5,"line"))+ 
+  guides(shape = guide_legend(override.aes = list(size=5))) 
+  
+  
+  scale_colour_gradientn(name= "Class",colours=c("#C68E06","#0305C9","#0305C9"),
+                       values=rescale(x), 
+                       space = "Lab", breaks = c( 45 ,100, 200,400, 600), guide = guide_legend())
+
+
+  
+  
+    a  %<+% Mertest  + 
+     geom_tippoint(  aes(x = x, y = y , fill = log10 (Sbb), shape = as.factor(cluster)), size = 12,
+                     color = "black",alpha=1,position = "identity") + 
+     
+     scale_size_manual(values = c(4,6,8,10,12)) +
+     #scale_fill_continuous(name = "SBB",low = "red", high = "blue") + 
+     scale_colour_gradientn(colours=c("#C68E06","#0305C9","#0305C9"),
+                            values=rescale(x), 
+                            space = "Lab", breaks = c( 25 ,50, 100,200), guide = guide_legend())+
+     scale_alpha_discrete( range = c (0,1)) +  
+     scale_fill_gradientn(colours=c("#d53e4f","#f46d43","#fdae61",
+                                    "#fee08b","#e6f598","#abdda4","#ddf1da"),
+                          values=rescale(x), 
+                          space = "Lab", breaks = c( 25 ,50, 100,200), guide = guide_legend()) + 
+     scale_shape_manual(values = c (21,23))
+   
+   
+   ##########
+    
+    Mertest$Classement.4 =  Mertest$Classement.2
+    Mertest$Classement.4 = sub ( "OK", "Std", Mertest$Classement.4 )
+    Mertest$Classement.4 = factor(Mertest$Classement.4 )
+    
+    Mertest2 = Mertest[Mertest$Classement.4 != "",]
+     Mertest2$Classement.4 = factor (  Mertest2$Classement.4 )
+    
+    Mertest2$Classement.4 = factor(Mertest2$Classement.4,levels(Mertest2$Classement.4)[c (5,6,1,2,3,4 )] )
+    
+    
+    Mertest2$cluster = sub ( 1  , "Early spring\n harvest", Mertest2$cluster )
+      Mertest2$cluster = sub ( 2  , "Late spring\n harvest", Mertest2$cluster )
+    
+    
+    
+   ggplot ( Mertest2, aes(Sbb, Classement.4)) + geom_point(aes ( shape = as.factor(cluster), color = as.factor(cluster),fill = as.factor(cluster)),size = 14 ,position =position_jitter(width = 0.01, height = 0.01)) + scale_color_manual( name = "Cluster" ,values =   c ( "#00B56B","#FF9000"))    + annotation_logticks(sides ="b" )  +ylab("") + theme (axis.text.x = element_text(size = 36),axis.text.y = element_text(size = 36), axis.title = element_text(size=35) )  +  scale_x_continuous(trans=reverselog_trans(10),breaks= c(10,25,50, 100,200, 300) ) + theme(text=element_text(  family="Helvetica"), legend.key.size = unit(2, "cm"), legend.text=element_text(size=25 ), legend.title = element_text (size=30,face="bold")) + xlab(expression ("S"[bb])) + scale_shape_manual(name = "Cluster", values = c(23,24)) +  scale_fill_manual( name = "Cluster" ,values =  alpha( c ( "#00B56B","#FF9000"),0.5)) 
+
+    
+    
+    
+    ######
+
+  
+
+  
+  
+  cor_data = lead [,colnames(lead)[c(11,13:48)]]
+  
+  xx = data.frame (AA = colnames(lead)[c(11,13:48)], cor = 0, pval = 0 )
+  i=1
+  
+  for (zt in colnames(lead)[c(11,13:48)]){
+    
+    x_cor = cor.test ( cor_data$SBB, cor_data[,zt], method= "spearman"  )
+    
+    xx[i,1] = zt
+    xx[i,2] = x_cor$estimate[[1]]
+    xx[i,3] = x_cor$p.value[[1]]
+    #cor.test( a_Sel[,1],a_Sel[,2],method = "spearman" )
+    
+    
+    i=i+1
+  }
+  
+  
+  xx$padjus = p.adjust( xx$pval ,"fdr")
+  
+  
+
+  xxS  =   xx[     xx$padjus <0.05,]
+  
+  
+  ###########################
+  
+  cor_data = lead [,colnames(lead)[c(51,13:48)]]
+  
+  xx = data.frame (AA = colnames(lead)[c(13:48)], cor = 0, pval = 0 )
+  i=1
+  
+  for (zt in colnames(lead)[c(13:48)]){
+    
+    x_cor = cor.test ( cor_data$V5, cor_data[,zt], method= "spearman"  )
+    
+    xx[i,1] = zt
+    xx[i,2] = x_cor$estimate[[1]]
+    xx[i,3] = x_cor$p.value[[1]]
+    #cor.test( a_Sel[,1],a_Sel[,2],method = "spearman" )
+    
+    
+    i=i+1
+  }
+  
+  
+  xx$padjus = p.adjust( xx$pval ,"fdr")
+  
+  
+  
+  xxS  =   xx[     xx$padjus <0.05,]
+  
+  
+ ggplot ( Mertest, aes ( as.factor (cluster) , Sbb)) + geom_boxplot(aes ( fill = as.factor(cluster))) + 
+  geom_point()
+  
+ 
+ max( Mertest$Sbb[Mertest$cluster ==2])
+min ( Mertest$Sbb[Mertest$cluster ==1] )
+
+median( Mertest$Sbb[Mertest$cluster ==1])
+
+quantile( Mertest$Sbb[Mertest$cluster ==1])
+
+ round (quantile( Mertest$Sb[Mertest$cluster ==2]) , 1)
+ 
+
+ 
+ wilcox.test(Sbb ~ cluster , Mertest )
+
+Mertest2 = Mertest[Mertest$Type == "sève",]
+ 
+ write.table(Mertest,"21.01.18 data fitness Sbb cluster.txt",row.names = F, quote = F, sep = "\t" )
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ #######
+ 
+liste_selc= c ("SUL1", "SUL2","OPI3", "MET5", "MET14", "MET16", "SKP2", "SPE2","COQ3","COQ4","TRM10","HLS7","APA1","SAM1","SAM2")
+ 
+ 
+  as.character(correspondance_SC$V1[ correspondance_SC$V2 %in% liste_selc])
+ 
+ 
+ liste_YY = M_pval_all_condition[M_pval_all_condition$ORF %in% liste_selc,]
+ 
+ liste_Y= as.character(liste_YY$Yeast)
+ 
+ DF_tqf_c = DF_tqf
+ 
+ row.names(  DF_tqf_c )=  DF_tqf_c $name
+ bnt  = DF_tqf_c[, liste_Y]
+ 
+ bnt$name = rownames(bnt )
+ 
+ bnt_M = merge(bnt , by.x = "name", CDATA2[,2:3] ,  by.y ="Code.échantillon")
+ 
+ 
+  bnt_MM = melt(data =  bnt_M, measure.vars = colnames( bnt_M)[2:(ncol(bnt_M))], id.vars =  c("name","Sbb"))
+ 
+  
+  
+
+  
+   bnt_MM = merge (   bnt_MM,by.x = "variable", correspondance_SC, by.y = "V1")
+ 
+  
+     mesn = summarySE(bnt_MM,measurevar = "value", groupvars = c("V2"))
+ 
+  mesn$g = mesn$value
+  
+  mesn$g[mesn$value > 0.95] = "Group1"
+   mesn$g[mesn$value < 0.95] = "Group2"
+  
+  
+     bnt_MM = merge (   bnt_MM, mesn[,c(1,7)], by = "V2")
+   
+   
+  bnt_MM $V2 = factor (bnt_MM $V2)
+  
+   bnt_MM $V3 = factor (bnt_MM $V2, levels (bnt_MM $V2)[c(10,6,9,7,1,14,2,13,8,3,12,4,11,5)])
+  
+  
+  ggplot( bnt_MM , aes (x = Sbb, y = value, color = V3 )) + stat_smooth(alpha =0.3,se = F,size = 1) + geom_point(size = 1.5,alpha = 0.5)+ geom_label_repel( data =bnt_MM[bnt_MM$Sbb >300,], aes(x = Sbb,label = V2),segment.alpha = 0,force = 0.009,size = 8 ) +
+    theme(plot.title=element_text(family="Helvetica", face="bold", size=20) , legend.text=element_text(size=24) , axis.text.x = element_text(angle = 60, hjust = 1,size = 18),axis.text.y = element_text(size = 18) , axis.title.x = element_text(size = 35) , axis.title.y = element_text(size = 35) , legend.title = element_text ( face="bold", size=30), legend.key.size = unit(0.8, "cm"), legend.position = "none", legend.title.align = 0.5)+  scale_x_continuous(trans=reverselog_trans(10),breaks= c(10,25,50, 100,200, 300) ) + ylab ( expression("Fitness")) + facet_wrap(~g,ncol=2,scales = "free")  + 
+theme(
+  strip.background = element_blank(),
+  strip.text.x = element_blank()) + xlab ( expression("S"[bb])) + scale_color_manual(
+    values = c ("#000000", # SKP2
+                "#ff8b94", # MET5
+                "#ffa263", #SAM2 
+                "#90678c", #OPI3 
+                "#ff8b94", #APA1 
+                "#414f6f", #TRM10 
+                "#e59eaf",  #COQ3 
+                "#000000", #SUL2 
+                "#e59eaf", #SAM1
+                "#1a9c99",  #COQ4
+                "#2591a1",  #SUL1 
+                "#ffa263", #MET14 
+                "#da5d78", #SPE2 
+                "#2591a1")) #MET16))
+  
+  
+  #SKP2 #MET5 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+ 
+  
+   bnt_M = merge(bnt , by.x = "name", CDATA2[,c(2,17)] ,  by.y ="Code.échantillon")
+ 
+ 
+  bnt_MM = melt(data =  bnt_M, measure.vars = colnames( bnt_M)[2:(ncol(bnt_M)-1)], id.vars =  c("name","Classement.2"))
+ 
+ 
+   bnt_MM = merge (   bnt_MM,by.x = "variable", correspondance_SC, by.y = "V1")
+ 
+   bnt_MM_S=  bnt_MM[bnt_MM$Classement.2 %in% c("OK","5") ,]
+  
+      bnt_MM_S$Classement.3 = factor(bnt_MM_S$Classement.2)
+   
+   levels( bnt_MM_S$Classement.3) = c("5","Std") 
+   
+   
+  ggplot( bnt_MM_S , aes (x = Classement.3, y = value, fill =  Classement.3 )) + geom_boxplot() + geom_point(position = position_dodge(.55), size = 0.5)+
+    theme(plot.title=element_text(family="Helvetica", face="bold", size=20) , legend.text=element_text(size=24) , axis.text.x = element_text(angle = 60, hjust = 1,size = 18),axis.text.y = element_text(size = 18) , axis.title.x = element_text(size = 1) , axis.title.y = element_text(size = 35) , legend.title = element_text ( face="bold", size=30), legend.key.size = unit(0.8, "cm"), legend.position = "bottom", legend.title.align = 0.5)+ ylab ( expression("S"[bb]))  + scale_fill_manual(name =  "Class", values = c( "#F87E7B" ,"#61ADA0" )) + xlab ("") + facet_grid(~V2,scales = "free_y",space = "free_y" )
+
+ 
+    ggplot( bnt_MM_S , aes (x = V2, y = value, fill =  Classement.3 )) + geom_boxplot() + geom_point(position = position_dodge(.55), size = 0.5)+
+    theme(plot.title=element_text(family="Helvetica", face="bold", size=20) , legend.text=element_text(size=24) , axis.text.x = element_text(angle = 60, hjust = 1,size = 18),axis.text.y = element_text(size = 18) , axis.title.x = element_text(size = 1) , axis.title.y = element_text(size = 35) , legend.title = element_text ( face="bold", size=30), legend.key.size = unit(0.8, "cm"), legend.position = "bottom", legend.title.align = 0.5)+ ylab ( expression("S"[bb]))  + scale_fill_manual(name =  "Class", values = c( "#F87E7B" ,"#61ADA0" )) + xlab ("") 
+ 
+  
+  
+  
+  
